@@ -94,8 +94,8 @@ jobs:
             -n chat --timeout=5m || \
           {
             echo "=== Rollout failed — pod diagnostics ==="
-            KUBECONFIG=/tmp/kc kubectl get pods -n chat -l app.kubernetes.io/name=chat-back
-            KUBECONFIG=/tmp/kc kubectl describe pods -n chat -l app.kubernetes.io/name=chat-back | tail -40
+            KUBECONFIG=/tmp/kc kubectl get pods -n chat -l app=chat-back
+            KUBECONFIG=/tmp/kc kubectl describe pods -n chat -l app=chat-back | tail -40
             KUBECONFIG=/tmp/kc kubectl get events -n chat --sort-by='.lastTimestamp' | tail -20
             KUBECONFIG=/tmp/kc kubectl rollout undo deployment/chat-back -n chat
             exit 1

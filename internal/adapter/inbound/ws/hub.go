@@ -1,0 +1,214 @@
+package ws
+
+import (
+	"context"
+	"encoding/json"
+	"log"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jcrlabs/chat-back/internal/app"
+	"github.com/jcrlabs/chat-back/internal/domain"
+)
+
+// Envelope carries a parsed client message along with its sender.
+type Envelope struct {
+	client *Client
+	msg    ClientMessage
+}
+
+// Broadcaster is the port for subscribing/publishing to Redis pub/sub.
+type Broadcaster interface {
+	Publish(ctx context.Context, roomID uuid.UUID, msg []byte) error
+	Subscribe(ctx context.Context, roomID uuid.UUID, onMessage func([]byte)) error
+	Unsubscribe(ctx context.Context, roomID uuid.UUID) error
+}
+
+// Hub is the central broker. It runs in a single goroutine to avoid races.
+type Hub struct {
+	clients    map[*Client]struct{}
+	rooms      map[uuid.UUID]map[*Client]struct{} // roomID → clients
+	register   chan *Client
+	unregister chan *Client
+	incoming   chan *Envelope
+	broadcast  chan broadcastMsg
+
+	chatSvc     *app.ChatService
+	presenceSvc *app.PresenceService
+	broadcaster Broadcaster
+}
+
+type broadcastMsg struct {
+	roomID uuid.UUID
+	data   []byte
+}
+
+func NewHub(chatSvc *app.ChatService, presenceSvc *app.PresenceService, broadcaster Broadcaster) *Hub {
+	return &Hub{
+		clients:     make(map[*Client]struct{}),
+		rooms:       make(map[uuid.UUID]map[*Client]struct{}),
+		register:    make(chan *Client, 64),
+		unregister:  make(chan *Client, 64),
+		incoming:    make(chan *Envelope, 256),
+		broadcast:   make(chan broadcastMsg, 256),
+		chatSvc:     chatSvc,
+		presenceSvc: presenceSvc,
+		broadcaster: broadcaster,
+	}
+}
+
+func (h *Hub) Run() {
+	for {
+		select {
+		case c := <-h.register:
+			h.clients[c] = struct{}{}
+			ctx := context.Background()
+			_ = h.presenceSvc.SetOnline(ctx, c.userID)
+
+		case c := <-h.unregister:
+			if _, ok := h.clients[c]; ok {
+				delete(h.clients, c)
+				close(c.send)
+				for roomID := range c.rooms {
+					h.leaveRoom(c, roomID)
+				}
+				ctx := context.Background()
+				_ = h.presenceSvc.SetOffline(ctx, c.userID)
+				h.broadcastPresence(c.userID, c.username, "offline")
+			}
+
+		case env := <-h.incoming:
+			h.handleMessage(env)
+
+		case bm := <-h.broadcast:
+			h.deliverLocal(bm.roomID, bm.data)
+		}
+	}
+}
+
+// RegisterClient registers a new client and starts its pumps.
+func (h *Hub) RegisterClient(ctx context.Context, c *Client) {
+	h.register <- c
+	go c.writePump(ctx)
+	go c.readPump(ctx)
+}
+
+func (h *Hub) handleMessage(env *Envelope) {
+	c, msg := env.client, env.msg
+	ctx := context.Background()
+
+	switch msg.Type {
+	case TypeJoinRoom:
+		h.joinRoom(ctx, c, msg.RoomID)
+	case TypeLeaveRoom:
+		h.leaveRoom(c, msg.RoomID)
+	case TypeChatMessage:
+		h.handleChat(ctx, c, msg)
+	case TypeTyping:
+		h.handleTyping(c, msg)
+	}
+}
+
+func (h *Hub) joinRoom(ctx context.Context, c *Client, roomID uuid.UUID) {
+	if _, joined := c.rooms[roomID]; joined {
+		return
+	}
+	c.rooms[roomID] = struct{}{}
+	if h.rooms[roomID] == nil {
+		h.rooms[roomID] = make(map[*Client]struct{})
+		// subscribe to Redis pub/sub for this room
+		go func() {
+			if err := h.broadcaster.Subscribe(ctx, roomID, func(data []byte) {
+				h.broadcast <- broadcastMsg{roomID: roomID, data: data}
+			}); err != nil {
+				log.Printf("subscribe room %s: %v", roomID, err)
+			}
+		}()
+	}
+	h.rooms[roomID][c] = struct{}{}
+
+	// build members list
+	var members []domain.Member
+	for client := range h.rooms[roomID] {
+		members = append(members, domain.Member{UserID: client.userID, Username: client.username})
+	}
+
+	c.sendMsg(ServerMessage{
+		Type:    TypeRoomJoined,
+		RoomID:  roomID,
+		Members: members,
+	})
+}
+
+func (h *Hub) leaveRoom(c *Client, roomID uuid.UUID) {
+	delete(c.rooms, roomID)
+	if room, ok := h.rooms[roomID]; ok {
+		delete(room, c)
+		if len(room) == 0 {
+			delete(h.rooms, roomID)
+			_ = h.broadcaster.Unsubscribe(context.Background(), roomID)
+		}
+	}
+}
+
+func (h *Hub) handleChat(ctx context.Context, c *Client, msg ClientMessage) {
+	saved, err := h.chatSvc.SendMessage(ctx, c.userID, c.username, msg.RoomID, msg.Content)
+	if err != nil {
+		c.sendError("send_failed", err.Error())
+		return
+	}
+
+	out := ServerMessage{
+		Type:      TypeChatMessage,
+		RoomID:    saved.RoomID,
+		UserID:    saved.UserID,
+		Username:  saved.Username,
+		Content:   saved.Content,
+		Timestamp: saved.CreatedAt,
+	}
+	data, _ := json.Marshal(out)
+
+	// publish to Redis so all pods receive it
+	_ = h.broadcaster.Publish(ctx, msg.RoomID, data)
+}
+
+func (h *Hub) handleTyping(c *Client, msg ClientMessage) {
+	if msg.Typing == nil {
+		return
+	}
+	out := ServerMessage{
+		Type:     TypeTyping,
+		RoomID:   msg.RoomID,
+		UserID:   c.userID,
+		Username: c.username,
+	}
+	data, _ := json.Marshal(out)
+	h.deliverLocal(msg.RoomID, data)
+}
+
+func (h *Hub) deliverLocal(roomID uuid.UUID, data []byte) {
+	for client := range h.rooms[roomID] {
+		select {
+		case client.send <- data:
+		default:
+		}
+	}
+}
+
+func (h *Hub) broadcastPresence(userID uuid.UUID, username, status string) {
+	out := ServerMessage{
+		Type:      TypePresence,
+		UserID:    userID,
+		Username:  username,
+		Status:    status,
+		Timestamp: time.Now().UTC(),
+	}
+	data, _ := json.Marshal(out)
+	// deliver to all connected clients
+	for c := range h.clients {
+		select {
+		case c.send <- data:
+		default:
+		}
+	}
+}

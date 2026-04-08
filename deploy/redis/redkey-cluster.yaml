@@ -1,0 +1,19 @@
+---
+# RedkeyCluster — provisioned by InditexTech/redkeyoperator
+# Install operator first: see deploy/redis/install-operator.sh
+apiVersion: redkey.inditex.dev/v1
+kind: RedkeyCluster
+metadata:
+  name: chat-redis
+  namespace: chat
+spec:
+  primaries: 1
+  replicasPerPrimary: 1
+  image: redis:7.4-bookworm
+  ephemeral: false
+  storage: "10Gi"
+  deletePVC: false
+  config: |
+    protected-mode no
+    appendonly yes
+    maxmemory-policy allkeys-lru
