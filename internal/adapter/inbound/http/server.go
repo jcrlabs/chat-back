@@ -19,6 +19,7 @@ func NewServer(
 	roomSvc *app.RoomService,
 	msgSvc *app.MessageService,
 	presenceSvc *app.PresenceService,
+	userSvc *app.UserService,
 	authMW *middleware.JWTMiddleware,
 	privKey *rsa.PrivateKey,
 ) http.Handler {
@@ -35,7 +36,7 @@ func NewServer(
 	protected := authMW.Authenticate
 
 	// WebSocket
-	wsH := newWSHandler(hub, authMW)
+	wsH := newWSHandler(hub, authMW, userSvc)
 	mux.Handle("GET /api/ws", http.HandlerFunc(wsH.handle))
 
 	// Rooms
@@ -48,6 +49,13 @@ func NewServer(
 	// Messages
 	msgH := newMessageHandler(msgSvc)
 	mux.Handle("GET /api/rooms/{id}/messages", protected(http.HandlerFunc(msgH.history)))
+
+	// User profile
+	userH := newUserHandler(userSvc)
+	mux.Handle("GET /api/me", protected(http.HandlerFunc(userH.me)))
+	mux.Handle("PUT /api/me", protected(http.HandlerFunc(userH.updateProfile)))
+	mux.Handle("POST /api/me/avatar", protected(http.HandlerFunc(userH.uploadAvatar)))
+	mux.Handle("GET /api/users/{id}/avatar", http.HandlerFunc(userH.serveAvatar)) // public
 
 	// Health
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {

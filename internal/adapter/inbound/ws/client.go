@@ -17,22 +17,26 @@ const (
 
 // Client represents a single WebSocket connection.
 type Client struct {
-	hub      *Hub
-	conn     *websocket.Conn
-	userID   uuid.UUID
-	username string
-	rooms    map[uuid.UUID]struct{} // rooms joined
-	send     chan []byte            // buffered: writePump reads from here
+	hub         *Hub
+	conn        *websocket.Conn
+	userID      uuid.UUID
+	username    string
+	displayName string
+	avatarURL   string
+	rooms       map[uuid.UUID]struct{} // rooms joined
+	send        chan []byte            // buffered: writePump reads from here
 }
 
-func NewClient(hub *Hub, conn *websocket.Conn, userID uuid.UUID, username string) *Client {
+func NewClient(hub *Hub, conn *websocket.Conn, userID uuid.UUID, username, displayName, avatarURL string) *Client {
 	return &Client{
-		hub:      hub,
-		conn:     conn,
-		userID:   userID,
-		username: username,
-		rooms:    make(map[uuid.UUID]struct{}),
-		send:     make(chan []byte, sendBufferSize),
+		hub:         hub,
+		conn:        conn,
+		userID:      userID,
+		username:    username,
+		displayName: displayName,
+		avatarURL:   avatarURL,
+		rooms:       make(map[uuid.UUID]struct{}),
+		send:        make(chan []byte, sendBufferSize),
 	}
 }
 

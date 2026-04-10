@@ -27,6 +27,14 @@ type MessageRepository interface {
 	ListBefore(ctx context.Context, roomID uuid.UUID, cursor uuid.UUID, limit int) ([]*domain.Message, error)
 }
 
+// UserRepository is the port for user profile persistence.
+type UserRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	UpdateProfile(ctx context.Context, id uuid.UUID, displayName string) error
+	SaveAvatar(ctx context.Context, id uuid.UUID, data []byte, mime string) error
+	GetAvatar(ctx context.Context, id uuid.UUID) ([]byte, string, error)
+}
+
 // PresenceStore is the port for tracking online presence.
 type PresenceStore interface {
 	SetOnline(ctx context.Context, userID uuid.UUID) error

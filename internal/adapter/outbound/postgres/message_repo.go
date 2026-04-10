@@ -33,15 +33,21 @@ func (r *MessageRepo) ListBefore(ctx context.Context, roomID uuid.UUID, cursor u
 		args  []any
 	)
 
+	const sel = `
+		SELECT m.id, m.room_id, m.user_id, m.username,
+		       COALESCE(u.display_name, ''),
+		       CASE WHEN u.avatar_data IS NOT NULL
+		            THEN '/api/users/' || m.user_id::text || '/avatar'
+		            ELSE '' END,
+		       m.content, m.created_at
+		FROM messages m
+		LEFT JOIN users u ON u.id = m.user_id`
+
 	if cursor == uuid.Nil {
-		query = `SELECT id, room_id, user_id, username, content, created_at
-		          FROM messages WHERE room_id = $1
-		          ORDER BY id DESC LIMIT $2`
+		query = sel + ` WHERE m.room_id = $1 ORDER BY m.id DESC LIMIT $2`
 		args = []any{roomID, limit}
 	} else {
-		query = `SELECT id, room_id, user_id, username, content, created_at
-		          FROM messages WHERE room_id = $1 AND id < $2
-		          ORDER BY id DESC LIMIT $3`
+		query = sel + ` WHERE m.room_id = $1 AND m.id < $2 ORDER BY m.id DESC LIMIT $3`
 		args = []any{roomID, cursor, limit}
 	}
 
@@ -54,7 +60,8 @@ func (r *MessageRepo) ListBefore(ctx context.Context, roomID uuid.UUID, cursor u
 	msgs := make([]*domain.Message, 0)
 	for rows.Next() {
 		m := &domain.Message{}
-		if err := rows.Scan(&m.ID, &m.RoomID, &m.UserID, &m.Username, &m.Content, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.RoomID, &m.UserID, &m.Username,
+			&m.DisplayName, &m.AvatarURL, &m.Content, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		msgs = append(msgs, m)
