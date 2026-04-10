@@ -94,13 +94,24 @@ func UsernameFromContext(ctx context.Context) string {
 	return v
 }
 
-// ParseRSAPrivateKey parses a PEM-encoded RSA private key.
+// ParseRSAPrivateKey parses a PEM-encoded RSA private key (PKCS#1 or PKCS#8).
 func ParseRSAPrivateKey(data []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(data)
 	if block == nil {
 		return nil, errors.New("failed to decode PEM block")
 	}
-	return x509.ParsePKCS1PrivateKey(block.Bytes)
+	if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
+		return key, nil
+	}
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	rsaKey, ok := key.(*rsa.PrivateKey)
+	if !ok {
+		return nil, errors.New("not RSA private key")
+	}
+	return rsaKey, nil
 }
 
 // ParseRSAPublicKey parses a PEM-encoded RSA public key.
