@@ -1,6 +1,6 @@
 module github.com/jcrlabs/chat-back
 
-go 1.26.1
+go 1.24
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
