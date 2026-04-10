@@ -87,10 +87,17 @@ func (h *Hub) Run() {
 }
 
 // RegisterClient registers a new client and starts its pumps.
+// It blocks until the client disconnects so that the caller's context
+// (typically r.Context()) is not cancelled while the session is alive.
 func (h *Hub) RegisterClient(ctx context.Context, c *Client) {
 	h.register <- c
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.readPump(ctx)
+	}()
 	go c.writePump(ctx)
-	go c.readPump(ctx)
+	<-done
 }
 
 func (h *Hub) handleMessage(env *Envelope) {

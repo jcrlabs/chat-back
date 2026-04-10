@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/coder/websocket"
@@ -39,5 +40,5 @@ func (h *wsHandler) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := ws.NewClient(h.hub, conn, userID, username)
-	h.hub.RegisterClient(r.Context(), client)
+	h.hub.RegisterClient(context.Background(), client)
 }
