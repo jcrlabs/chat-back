@@ -17,15 +17,17 @@ type ClientMessage struct {
 
 // ServerMessage — messages sent from server to client
 type ServerMessage struct {
-	Type      string           `json:"type"`                // chat_message | typing | presence | room_joined | error
-	RoomID    uuid.UUID        `json:"room_id,omitempty"`
-	UserID    uuid.UUID        `json:"user_id,omitempty"`
-	Username  string           `json:"username,omitempty"`
-	Content   string           `json:"content,omitempty"`
-	Timestamp time.Time        `json:"timestamp,omitempty"`
-	Status    string           `json:"status,omitempty"` // online | offline
-	Members   []domain.Member  `json:"members,omitempty"`
-	Error     *ServerError     `json:"error,omitempty"`
+	Type        string          `json:"type"`                // chat_message | typing | presence | room_joined | error
+	RoomID      uuid.UUID       `json:"room_id,omitempty"`
+	UserID      uuid.UUID       `json:"user_id,omitempty"`
+	Username    string          `json:"username,omitempty"`
+	DisplayName string          `json:"display_name,omitempty"`
+	AvatarURL   string          `json:"avatar_url,omitempty"`
+	Content     string          `json:"content,omitempty"`
+	Timestamp   time.Time       `json:"timestamp,omitempty"`
+	Status      string          `json:"status,omitempty"` // online | offline
+	Members     []domain.Member `json:"members,omitempty"`
+	Error       *ServerError    `json:"error,omitempty"`
 }
 
 type ServerError struct {

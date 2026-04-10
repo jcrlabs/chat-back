@@ -166,12 +166,14 @@ func (h *Hub) handleChat(ctx context.Context, c *Client, msg ClientMessage) {
 	}
 
 	out := ServerMessage{
-		Type:      TypeChatMessage,
-		RoomID:    saved.RoomID,
-		UserID:    saved.UserID,
-		Username:  saved.Username,
-		Content:   saved.Content,
-		Timestamp: saved.CreatedAt,
+		Type:        TypeChatMessage,
+		RoomID:      saved.RoomID,
+		UserID:      saved.UserID,
+		Username:    saved.Username,
+		DisplayName: c.displayName,
+		AvatarURL:   c.avatarURL,
+		Content:     saved.Content,
+		Timestamp:   saved.CreatedAt,
 	}
 	data, _ := json.Marshal(out)
 
