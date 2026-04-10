@@ -40,7 +40,7 @@ env:
   PORT: "8080"
   JWT_PUBLIC_KEY_PATH: "/etc/chat/keys/public.pem"
   JWT_PRIVATE_KEY_PATH: "/etc/chat/keys/private.pem"
-  REDIS_ADDRS: "chat-redis-0.chat-redis.chat.svc.cluster.local:6379"
+  REDIS_ADDRS: "chat-redis-0.chat-redis.chat.svc.cluster.local:6379,chat-redis-1.chat-redis.chat.svc.cluster.local:6379,chat-redis-2.chat-redis.chat.svc.cluster.local:6379"
   ALLOWED_ORIGINS: "https://chat.jcrlabs.net"
 
 secrets:
