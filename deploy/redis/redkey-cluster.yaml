@@ -13,6 +13,7 @@ spec:
   ephemeral: false
   storage: "10Gi"
   deletePVC: false
+  purgeKeysOnRebalance: false
   config: |
     protected-mode no
     appendonly yes
