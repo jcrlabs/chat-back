@@ -51,7 +51,7 @@ func (r *MessageRepo) ListBefore(ctx context.Context, roomID uuid.UUID, cursor u
 	}
 	defer rows.Close()
 
-	var msgs []*domain.Message
+	msgs := make([]*domain.Message, 0)
 	for rows.Next() {
 		m := &domain.Message{}
 		if err := rows.Scan(&m.ID, &m.RoomID, &m.UserID, &m.Username, &m.Content, &m.CreatedAt); err != nil {
