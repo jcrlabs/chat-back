@@ -1,11 +1,13 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jcrlabs/chat-back/internal/adapter/inbound/ws"
 	"github.com/jcrlabs/chat-back/internal/app"
 	"github.com/jcrlabs/chat-back/internal/domain"
 	"github.com/jcrlabs/chat-back/internal/middleware"
@@ -13,10 +15,13 @@ import (
 
 type roomHandler struct {
 	svc *app.RoomService
+	hub interface {
+		PublishToRoom(ctx context.Context, roomID uuid.UUID, data []byte) error
+	}
 }
 
-func newRoomHandler(svc *app.RoomService) *roomHandler {
-	return &roomHandler{svc: svc}
+func newRoomHandler(svc *app.RoomService, hub *ws.Hub) *roomHandler {
+	return &roomHandler{svc: svc, hub: hub}
 }
 
 func (h *roomHandler) list(w http.ResponseWriter, r *http.Request) {
@@ -257,6 +262,50 @@ func (h *roomHandler) myInvites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, invites)
+}
+
+func (h *roomHandler) rename(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody("invalid id"))
+		return
+	}
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody("invalid body"))
+		return
+	}
+	requesterID := middleware.UserIDFromContext(r.Context())
+	room, err := h.svc.Rename(r.Context(), id, requesterID, body.Name)
+	if err != nil {
+		if errors.Is(err, domain.ErrBadRequest) {
+			writeJSON(w, http.StatusBadRequest, errBody(err.Error()))
+			return
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			writeJSON(w, http.StatusForbidden, errBody("forbidden"))
+			return
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			writeJSON(w, http.StatusNotFound, errBody("not found"))
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
+		return
+	}
+
+	out := ws.ServerMessage{
+		Type:   ws.TypeRoomRenamed,
+		RoomID: room.ID,
+		Name:   room.Name,
+	}
+	if data, err := json.Marshal(out); err == nil {
+		_ = h.hub.PublishToRoom(r.Context(), room.ID, data)
+	}
+
+	writeJSON(w, http.StatusOK, room)
 }
 
 func errBody(msg string) map[string]string {

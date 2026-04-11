@@ -41,9 +41,10 @@ func NewServer(
 	mux.Handle("GET /api/ws", http.HandlerFunc(wsH.handle))
 
 	// Rooms
-	roomH := newRoomHandler(roomSvc)
+	roomH := newRoomHandler(roomSvc, hub)
 	mux.Handle("GET /api/rooms", protected(http.HandlerFunc(roomH.list)))
 	mux.Handle("POST /api/rooms", protected(http.HandlerFunc(roomH.create)))
+	mux.Handle("PATCH /api/rooms/{id}", protected(http.HandlerFunc(roomH.rename)))
 	mux.Handle("DELETE /api/rooms/{id}", protected(http.HandlerFunc(roomH.delete)))
 	mux.Handle("GET /api/rooms/{id}/members", protected(http.HandlerFunc(roomH.members)))
 	mux.Handle("PUT /api/rooms/{id}/members/{uid}/role", protected(http.HandlerFunc(roomH.setMemberRole)))
@@ -55,8 +56,10 @@ func NewServer(
 	mux.Handle("GET /api/me/invites", protected(http.HandlerFunc(roomH.myInvites)))
 
 	// Messages
-	msgH := newMessageHandler(msgSvc)
+	msgH := newMessageHandler(msgSvc, roomSvc, hub)
 	mux.Handle("GET /api/rooms/{id}/messages", protected(http.HandlerFunc(msgH.history)))
+	mux.Handle("PATCH /api/messages/{id}", protected(http.HandlerFunc(msgH.editMessage)))
+	mux.Handle("DELETE /api/messages/{id}", protected(http.HandlerFunc(msgH.deleteMessage)))
 
 	// User profile
 	userH := newUserHandler(userSvc)

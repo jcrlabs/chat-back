@@ -180,3 +180,22 @@ func (s *RoomService) KickMember(ctx context.Context, roomID, requesterID, targe
 func (s *RoomService) GetRoom(ctx context.Context, id uuid.UUID) (*domain.Room, error) {
 	return s.repo.GetByID(ctx, id)
 }
+
+func (s *RoomService) Rename(ctx context.Context, roomID, requesterID uuid.UUID, name string) (*domain.Room, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, domain.ErrBadRequest
+	}
+	room, err := s.repo.GetByID(ctx, roomID)
+	if err != nil {
+		return nil, err
+	}
+	if room.OwnerID != requesterID {
+		return nil, domain.ErrForbidden
+	}
+	if err := s.repo.Rename(ctx, roomID, name); err != nil {
+		return nil, err
+	}
+	room.Name = name
+	return room, nil
+}

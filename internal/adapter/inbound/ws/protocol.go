@@ -24,14 +24,17 @@ type ClientMessage struct {
 
 // ServerMessage — messages sent from server to client
 type ServerMessage struct {
-	Type        string          `json:"type"` // chat_message | typing | presence | room_joined | error | voice_*
+	Type        string          `json:"type"` // chat_message | typing | presence | room_joined | error | voice_* | message_edited | message_deleted | room_renamed
 	RoomID      uuid.UUID       `json:"room_id,omitempty"`
+	MessageID   uuid.UUID       `json:"message_id,omitempty"`
 	UserID      uuid.UUID       `json:"user_id,omitempty"`
 	Username    string          `json:"username,omitempty"`
 	DisplayName string          `json:"display_name,omitempty"`
 	AvatarURL   string          `json:"avatar_url,omitempty"`
 	Content     string          `json:"content,omitempty"`
 	Timestamp   time.Time       `json:"timestamp,omitempty"`
+	EditedAt    *time.Time      `json:"edited_at,omitempty"`
+	Name        string          `json:"name,omitempty"`
 	Status      string          `json:"status,omitempty"` // online | offline
 	Members     []domain.Member `json:"members,omitempty"`
 	Error       *ServerError    `json:"error,omitempty"`
@@ -57,6 +60,10 @@ const (
 	TypePresence    = "presence"
 	TypeRoomJoined  = "room_joined"
 	TypeError       = "error"
+	// Edit / delete / rename
+	TypeMessageEdited = "message_edited"
+	TypeMessageDeleted = "message_deleted"
+	TypeRoomRenamed   = "room_renamed"
 	// Voice
 	TypeVoiceJoin         = "voice_join"
 	TypeVoiceLeave        = "voice_leave"

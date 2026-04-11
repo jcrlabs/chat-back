@@ -153,6 +153,19 @@ func (r *RoomRepo) IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool
 	return exists, err
 }
 
+func (r *RoomRepo) Rename(ctx context.Context, id uuid.UUID, name string) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE rooms SET name = $2 WHERE id = $1`, id, name,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func (r *RoomRepo) ListForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Room, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT r.id, r.name, r.type, r.owner_id, r.created_at
