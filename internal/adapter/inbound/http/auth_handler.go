@@ -131,9 +131,20 @@ func (h *authHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	authMW := middleware.NewJWTMiddleware(&h.privKey.PublicKey)
-	userID, username, isAdmin, err := authMW.ValidateToken(cookie.Value)
+	userID, _, _, err := authMW.ValidateToken(cookie.Value)
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, errBody("invalid refresh token"))
+		return
+	}
+
+	// Re-fetch username and is_admin from DB so changes take effect immediately.
+	var username string
+	var isAdmin bool
+	err = h.pool.QueryRow(r.Context(),
+		`SELECT username, is_admin FROM users WHERE id = $1`, userID,
+	).Scan(&username, &isAdmin)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, errBody("user not found"))
 		return
 	}
 
