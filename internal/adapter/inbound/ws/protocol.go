@@ -36,12 +36,12 @@ type ServerMessage struct {
 	Members     []domain.Member `json:"members,omitempty"`
 	Error       *ServerError    `json:"error,omitempty"`
 	// Voice signaling
-	SDP          string      `json:"sdp,omitempty"`
-	SDPType      string      `json:"sdp_type,omitempty"`
-	Candidate    string      `json:"candidate,omitempty"`
-	SDPMid       string      `json:"sdp_mid,omitempty"`
-	SDPMLineIndex *uint16    `json:"sdp_m_line_index,omitempty"`
-	Participants []uuid.UUID `json:"participants,omitempty"`
+	SDP           string      `json:"sdp,omitempty"`
+	SDPType       string      `json:"sdp_type,omitempty"`
+	Candidate     string      `json:"candidate,omitempty"`
+	SDPMid        string      `json:"sdp_mid,omitempty"`
+	SDPMLineIndex *uint16     `json:"sdp_m_line_index,omitempty"`
+	Participants  []uuid.UUID `json:"participants,omitempty"`
 }
 
 type ServerError struct {

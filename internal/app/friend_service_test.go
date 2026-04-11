@@ -12,13 +12,13 @@ import (
 // ── mock ──────────────────────────────────────────────────────────────────────
 
 type mockFriendRepo struct {
-	sendRequestFn        func(ctx context.Context, requesterID, addresseeID uuid.UUID) error
-	acceptFn             func(ctx context.Context, id uuid.UUID, addresseeID uuid.UUID) error
-	removeFn             func(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
-	listFriendsFn        func(ctx context.Context, userID uuid.UUID) ([]*domain.FriendEntry, error)
-	listPendingFn        func(ctx context.Context, userID uuid.UUID) ([]*domain.FriendRequest, error)
-	getOrCreateDMFn      func(ctx context.Context, userID1, userID2 uuid.UUID) (*domain.Room, error)
-	listDMsFn            func(ctx context.Context, userID uuid.UUID) ([]*domain.DMRoom, error)
+	sendRequestFn   func(ctx context.Context, requesterID, addresseeID uuid.UUID) error
+	acceptFn        func(ctx context.Context, id uuid.UUID, addresseeID uuid.UUID) error
+	removeFn        func(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	listFriendsFn   func(ctx context.Context, userID uuid.UUID) ([]*domain.FriendEntry, error)
+	listPendingFn   func(ctx context.Context, userID uuid.UUID) ([]*domain.FriendRequest, error)
+	getOrCreateDMFn func(ctx context.Context, userID1, userID2 uuid.UUID) (*domain.Room, error)
+	listDMsFn       func(ctx context.Context, userID uuid.UUID) ([]*domain.DMRoom, error)
 }
 
 func (m *mockFriendRepo) SendRequest(ctx context.Context, r, a uuid.UUID) error {

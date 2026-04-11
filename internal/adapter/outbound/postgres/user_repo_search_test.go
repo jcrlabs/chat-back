@@ -40,10 +40,10 @@ func TestParseTagQuery_Valid(t *testing.T) {
 
 func TestParseTagQuery_Invalid(t *testing.T) {
 	cases := []string{
-		"alice",       // no #
-		"alice#",      // empty tag
-		"",            // empty string
-		"#0042",       // empty username (still parses, but username is empty — caller decides)
+		"alice",  // no #
+		"alice#", // empty tag
+		"",       // empty string
+		"#0042",  // empty username (still parses, but username is empty — caller decides)
 	}
 	for _, input := range cases {
 		_, _, ok := parseTagQuery(input)
