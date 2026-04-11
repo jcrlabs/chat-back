@@ -9,7 +9,7 @@ import (
 
 // ClientMessage — messages sent from client to server
 type ClientMessage struct {
-	Type    string    `json:"type"`                // join_room | leave_room | chat_message | typing
+	Type    string    `json:"type"` // join_room | leave_room | chat_message | typing
 	RoomID  uuid.UUID `json:"room_id"`
 	Content string    `json:"content,omitempty"`   // chat_message only
 	Typing  *bool     `json:"is_typing,omitempty"` // typing only
@@ -17,7 +17,7 @@ type ClientMessage struct {
 
 // ServerMessage — messages sent from server to client
 type ServerMessage struct {
-	Type        string          `json:"type"`                // chat_message | typing | presence | room_joined | error
+	Type        string          `json:"type"` // chat_message | typing | presence | room_joined | error
 	RoomID      uuid.UUID       `json:"room_id,omitempty"`
 	UserID      uuid.UUID       `json:"user_id,omitempty"`
 	Username    string          `json:"username,omitempty"`

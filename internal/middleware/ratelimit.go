@@ -8,9 +8,9 @@ import (
 
 // tokenBucket is a simple per-key token bucket rate limiter.
 type tokenBucket struct {
-	mu       sync.Mutex
-	buckets  map[string]*bucket
-	capacity int
+	mu        sync.Mutex
+	buckets   map[string]*bucket
+	capacity  int
 	refillPer time.Duration // refill 1 token per this duration
 }
 

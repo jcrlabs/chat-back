@@ -13,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/jcrlabs/chat-back/internal/adapter/inbound/ws"
 	httpAdapter "github.com/jcrlabs/chat-back/internal/adapter/inbound/http"
-	redisAdapter "github.com/jcrlabs/chat-back/internal/adapter/outbound/redis"
+	"github.com/jcrlabs/chat-back/internal/adapter/inbound/ws"
 	"github.com/jcrlabs/chat-back/internal/adapter/outbound/postgres"
+	redisAdapter "github.com/jcrlabs/chat-back/internal/adapter/outbound/redis"
 	"github.com/jcrlabs/chat-back/internal/app"
 	"github.com/jcrlabs/chat-back/internal/config"
 	"github.com/jcrlabs/chat-back/internal/middleware"
@@ -48,20 +48,20 @@ func main() {
 	pubKey := mustLoadPublicKey(cfg.JWTPublicKeyPath)
 
 	// ── Adapters ───────────────────────────────────────────────────────────
-	roomRepo    := postgres.NewRoomRepo(pool)
+	roomRepo := postgres.NewRoomRepo(pool)
 	messageRepo := postgres.NewMessageRepo(pool)
-	userRepo    := postgres.NewUserRepo(pool)
-	friendRepo  := postgres.NewFriendRepo(pool)
-	presence    := redisAdapter.NewPresence(rdb)
-	pubsub      := redisAdapter.NewPubSub(rdb)
+	userRepo := postgres.NewUserRepo(pool)
+	friendRepo := postgres.NewFriendRepo(pool)
+	presence := redisAdapter.NewPresence(rdb)
+	pubsub := redisAdapter.NewPubSub(rdb)
 
 	// ── Services ───────────────────────────────────────────────────────────
-	roomSvc    := app.NewRoomService(roomRepo)
-	msgSvc     := app.NewMessageService(messageRepo)
-	userSvc    := app.NewUserService(userRepo)
-	friendSvc  := app.NewFriendService(friendRepo)
+	roomSvc := app.NewRoomService(roomRepo)
+	msgSvc := app.NewMessageService(messageRepo)
+	userSvc := app.NewUserService(userRepo)
+	friendSvc := app.NewFriendService(friendRepo)
 	presenceSvc := app.NewPresenceService(presence)
-	chatSvc    := app.NewChatService(msgSvc, pubsub)
+	chatSvc := app.NewChatService(msgSvc, pubsub)
 
 	// ── WebSocket hub ──────────────────────────────────────────────────────
 	hub := ws.NewHub(chatSvc, presenceSvc, pubsub)
