@@ -60,3 +60,29 @@ func (r *UserRepo) GetAvatar(ctx context.Context, id uuid.UUID) ([]byte, string,
 	}
 	return data, mime, err
 }
+
+func (r *UserRepo) Search(ctx context.Context, query string, excludeID uuid.UUID) ([]*domain.User, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, username, COALESCE(display_name,''), email,
+		        (avatar_data IS NOT NULL), created_at, updated_at
+		 FROM users
+		 WHERE id != $1
+		   AND (username ILIKE $2 OR display_name ILIKE $2)
+		 ORDER BY username LIMIT 20`,
+		excludeID, "%"+query+"%",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*domain.User
+	for rows.Next() {
+		u := &domain.User{}
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Email,
+			&u.HasAvatar, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}

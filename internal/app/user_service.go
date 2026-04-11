@@ -30,3 +30,7 @@ func (s *UserService) SaveAvatar(ctx context.Context, id uuid.UUID, data []byte,
 func (s *UserService) GetAvatar(ctx context.Context, id uuid.UUID) ([]byte, string, error) {
 	return s.repo.GetAvatar(ctx, id)
 }
+
+func (s *UserService) Search(ctx context.Context, query string, excludeID uuid.UUID) ([]*domain.User, error) {
+	return s.repo.Search(ctx, query, excludeID)
+}
