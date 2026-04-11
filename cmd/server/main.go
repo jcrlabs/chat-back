@@ -49,6 +49,7 @@ func main() {
 
 	// ── Adapters ───────────────────────────────────────────────────────────
 	roomRepo := postgres.NewRoomRepo(pool)
+	inviteRepo := postgres.NewInviteRepo(pool)
 	messageRepo := postgres.NewMessageRepo(pool)
 	userRepo := postgres.NewUserRepo(pool)
 	friendRepo := postgres.NewFriendRepo(pool)
@@ -56,7 +57,7 @@ func main() {
 	pubsub := redisAdapter.NewPubSub(rdb)
 
 	// ── Services ───────────────────────────────────────────────────────────
-	roomSvc := app.NewRoomService(roomRepo)
+	roomSvc := app.NewRoomService(roomRepo, inviteRepo)
 	msgSvc := app.NewMessageService(messageRepo)
 	userSvc := app.NewUserService(userRepo)
 	friendSvc := app.NewFriendService(friendRepo)
@@ -64,7 +65,7 @@ func main() {
 	chatSvc := app.NewChatService(msgSvc, pubsub)
 
 	// ── WebSocket hub ──────────────────────────────────────────────────────
-	hub := ws.NewHub(chatSvc, presenceSvc, pubsub)
+	hub := ws.NewHub(chatSvc, presenceSvc, roomSvc, pubsub)
 	go hub.Run()
 
 	// ── HTTP server ────────────────────────────────────────────────────────

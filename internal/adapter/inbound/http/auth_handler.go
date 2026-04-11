@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jcrlabs/chat-back/internal/middleware"
 	"golang.org/x/crypto/bcrypt"
@@ -64,7 +66,19 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		userID, req.Username, req.Email, string(hash), tag,
 	)
 	if err != nil {
-		writeJSON(w, http.StatusConflict, errBody("username or email already exists"))
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			switch pgErr.ConstraintName {
+			case "users_username_key":
+				writeJSON(w, http.StatusConflict, errBody("username already taken"))
+			case "users_email_key":
+				writeJSON(w, http.StatusConflict, errBody("email already in use"))
+			default:
+				writeJSON(w, http.StatusConflict, errBody("username or email already exists"))
+			}
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
 		return
 	}
 

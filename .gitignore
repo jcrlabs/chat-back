@@ -27,6 +27,12 @@ go.work.sum
 # env file
 .env
 
+# secrets / keys
+.keys/
+*.pem
+*.key
+deploy/coturn/coturn-secret.yaml
+
 # Editor/IDE
 # .idea/
 # .vscode/

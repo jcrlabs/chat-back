@@ -46,6 +46,13 @@ func NewServer(
 	mux.Handle("POST /api/rooms", protected(http.HandlerFunc(roomH.create)))
 	mux.Handle("DELETE /api/rooms/{id}", protected(http.HandlerFunc(roomH.delete)))
 	mux.Handle("GET /api/rooms/{id}/members", protected(http.HandlerFunc(roomH.members)))
+	mux.Handle("PUT /api/rooms/{id}/members/{uid}/role", protected(http.HandlerFunc(roomH.setMemberRole)))
+	mux.Handle("DELETE /api/rooms/{id}/members/{uid}", protected(http.HandlerFunc(roomH.kickMember)))
+	mux.Handle("POST /api/rooms/{id}/invites", protected(http.HandlerFunc(roomH.inviteUser)))
+	mux.Handle("GET /api/rooms/{id}/invites", protected(http.HandlerFunc(roomH.listRoomInvites)))
+	mux.Handle("POST /api/invites/{id}/accept", protected(http.HandlerFunc(roomH.acceptInvite)))
+	mux.Handle("POST /api/invites/{id}/decline", protected(http.HandlerFunc(roomH.declineInvite)))
+	mux.Handle("GET /api/me/invites", protected(http.HandlerFunc(roomH.myInvites)))
 
 	// Messages
 	msgH := newMessageHandler(msgSvc)

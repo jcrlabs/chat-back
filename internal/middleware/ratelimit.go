@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -93,7 +95,15 @@ func RateLimit(capacity int, refillPer time.Duration) func(http.Handler) http.Ha
 
 func clientIP(r *http.Request) string {
 	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
-		return fwd
+		// X-Forwarded-For may be "client, proxy1, proxy2" — take the first entry
+		if idx := strings.IndexByte(fwd, ','); idx != -1 {
+			return strings.TrimSpace(fwd[:idx])
+		}
+		return strings.TrimSpace(fwd)
+	}
+	// strip port from RemoteAddr
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
 	}
 	return r.RemoteAddr
 }
