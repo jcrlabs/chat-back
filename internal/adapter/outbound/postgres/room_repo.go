@@ -171,6 +171,7 @@ func (r *RoomRepo) ListForUser(ctx context.Context, userID uuid.UUID) ([]*domain
 		`SELECT r.id, r.name, r.type, r.owner_id, r.created_at
 		 FROM rooms r
 		 WHERE r.type = 'public'
+		    OR r.type = 'voice'
 		    OR (r.type = 'private' AND EXISTS (
 		            SELECT 1 FROM room_members rm WHERE rm.room_id = r.id AND rm.user_id = $1
 		        ))
