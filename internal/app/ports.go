@@ -33,6 +33,18 @@ type UserRepository interface {
 	UpdateProfile(ctx context.Context, id uuid.UUID, displayName string) error
 	SaveAvatar(ctx context.Context, id uuid.UUID, data []byte, mime string) error
 	GetAvatar(ctx context.Context, id uuid.UUID) ([]byte, string, error)
+	Search(ctx context.Context, query string, excludeID uuid.UUID) ([]*domain.User, error)
+}
+
+// FriendRepository is the port for friendship persistence.
+type FriendRepository interface {
+	SendRequest(ctx context.Context, requesterID, addresseeID uuid.UUID) error
+	Accept(ctx context.Context, id uuid.UUID, addresseeID uuid.UUID) error
+	Remove(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	ListFriends(ctx context.Context, userID uuid.UUID) ([]*domain.FriendEntry, error)
+	ListPendingReceived(ctx context.Context, userID uuid.UUID) ([]*domain.FriendRequest, error)
+	GetOrCreateDM(ctx context.Context, userID1, userID2 uuid.UUID) (*domain.Room, error)
+	ListDMs(ctx context.Context, userID uuid.UUID) ([]*domain.DMRoom, error)
 }
 
 // PresenceStore is the port for tracking online presence.

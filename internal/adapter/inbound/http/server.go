@@ -20,6 +20,7 @@ func NewServer(
 	msgSvc *app.MessageService,
 	presenceSvc *app.PresenceService,
 	userSvc *app.UserService,
+	friendSvc *app.FriendService,
 	authMW *middleware.JWTMiddleware,
 	privKey *rsa.PrivateKey,
 ) http.Handler {
@@ -56,6 +57,17 @@ func NewServer(
 	mux.Handle("PUT /api/me", protected(http.HandlerFunc(userH.updateProfile)))
 	mux.Handle("POST /api/me/avatar", protected(http.HandlerFunc(userH.uploadAvatar)))
 	mux.Handle("GET /api/users/{id}/avatar", http.HandlerFunc(userH.serveAvatar)) // public
+
+	// Friends & DMs
+	friendH := newFriendHandler(friendSvc, userSvc)
+	mux.Handle("GET /api/users/search", protected(http.HandlerFunc(friendH.searchUsers)))
+	mux.Handle("POST /api/friends/request", protected(http.HandlerFunc(friendH.sendRequest)))
+	mux.Handle("GET /api/friends/requests", protected(http.HandlerFunc(friendH.listRequests)))
+	mux.Handle("POST /api/friends/accept/{id}", protected(http.HandlerFunc(friendH.acceptRequest)))
+	mux.Handle("DELETE /api/friends/{id}", protected(http.HandlerFunc(friendH.remove)))
+	mux.Handle("GET /api/friends", protected(http.HandlerFunc(friendH.listFriends)))
+	mux.Handle("POST /api/dms", protected(http.HandlerFunc(friendH.createDM)))
+	mux.Handle("GET /api/dms", protected(http.HandlerFunc(friendH.listDMs)))
 
 	// Health
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {

@@ -51,6 +51,7 @@ func main() {
 	roomRepo    := postgres.NewRoomRepo(pool)
 	messageRepo := postgres.NewMessageRepo(pool)
 	userRepo    := postgres.NewUserRepo(pool)
+	friendRepo  := postgres.NewFriendRepo(pool)
 	presence    := redisAdapter.NewPresence(rdb)
 	pubsub      := redisAdapter.NewPubSub(rdb)
 
@@ -58,6 +59,7 @@ func main() {
 	roomSvc    := app.NewRoomService(roomRepo)
 	msgSvc     := app.NewMessageService(messageRepo)
 	userSvc    := app.NewUserService(userRepo)
+	friendSvc  := app.NewFriendService(friendRepo)
 	presenceSvc := app.NewPresenceService(presence)
 	chatSvc    := app.NewChatService(msgSvc, pubsub)
 
@@ -67,7 +69,7 @@ func main() {
 
 	// ── HTTP server ────────────────────────────────────────────────────────
 	authMW := middleware.NewJWTMiddleware(pubKey)
-	srv := httpAdapter.NewServer(cfg, pool, hub, roomSvc, msgSvc, presenceSvc, userSvc, authMW, privKey)
+	srv := httpAdapter.NewServer(cfg, pool, hub, roomSvc, msgSvc, presenceSvc, userSvc, friendSvc, authMW, privKey)
 
 	httpSrv := &http.Server{
 		Addr:         ":" + cfg.Port,
