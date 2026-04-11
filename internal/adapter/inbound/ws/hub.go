@@ -196,6 +196,7 @@ func (h *Hub) handleChat(ctx context.Context, c *Client, msg ClientMessage) {
 
 	out := ServerMessage{
 		Type:        TypeChatMessage,
+		MessageID:   saved.ID,
 		RoomID:      saved.RoomID,
 		UserID:      saved.UserID,
 		Username:    saved.Username,
@@ -300,6 +301,12 @@ func (h *Hub) relayVoiceSignal(c *Client, msg ClientMessage) {
 			return
 		}
 	}
+}
+
+// PublishToRoom publishes a pre-encoded JSON event to all pods via Redis.
+// Local delivery happens automatically through the existing subscription callback.
+func (h *Hub) PublishToRoom(ctx context.Context, roomID uuid.UUID, data []byte) error {
+	return h.broadcaster.Publish(ctx, roomID, data)
 }
 
 func (h *Hub) broadcastPresence(userID uuid.UUID, username, status string) {
