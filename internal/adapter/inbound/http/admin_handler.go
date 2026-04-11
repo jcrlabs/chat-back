@@ -26,7 +26,7 @@ func requireAdmin(next http.Handler) http.Handler {
 
 func (h *adminHandler) listUsers(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(),
-		`SELECT id, username, email, tag, display_name, is_admin, created_at FROM users ORDER BY created_at DESC`)
+		`SELECT id::text, username, email, tag, display_name, is_admin, created_at::text FROM users ORDER BY created_at DESC`)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
 		return
@@ -75,7 +75,7 @@ func (h *adminHandler) deleteUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *adminHandler) listRooms(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(),
-		`SELECT r.id, r.name, r.type, r.owner_id, u.username, r.created_at,
+		`SELECT r.id::text, r.name, r.type, r.owner_id::text, u.username, r.created_at::text,
 		        (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) AS member_count
 		 FROM rooms r JOIN users u ON u.id = r.owner_id ORDER BY r.created_at DESC`)
 	if err != nil {
