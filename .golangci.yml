@@ -1,7 +1,11 @@
-version: "2"
-
 linters:
-  default: standard
+  disable-all: true
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
 
 issues:
   max-issues-per-linter: 50
