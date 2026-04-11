@@ -62,7 +62,7 @@ func (r *FriendRepo) ListFriends(ctx context.Context, userID uuid.UUID) ([]*doma
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*domain.FriendEntry
+	out := make([]*domain.FriendEntry, 0)
 	for rows.Next() {
 		e := &domain.FriendEntry{}
 		if err := rows.Scan(&e.FriendshipID,

@@ -77,6 +77,10 @@ func (h *friendHandler) acceptRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := middleware.UserIDFromContext(r.Context())
 	if err := h.svc.Accept(r.Context(), id, userID); err != nil {
+		if err == domain.ErrNotFound {
+			writeJSON(w, http.StatusNotFound, errBody("request not found"))
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
 		return
 	}
