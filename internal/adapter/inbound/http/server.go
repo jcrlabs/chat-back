@@ -76,6 +76,14 @@ func NewServer(
 	mux.Handle("POST /api/dms", protected(http.HandlerFunc(friendH.createDM)))
 	mux.Handle("GET /api/dms", protected(http.HandlerFunc(friendH.listDMs)))
 
+	// Admin (requires is_admin JWT claim)
+	adminH := newAdminHandler(pool)
+	adminAuth := func(h http.Handler) http.Handler { return protected(requireAdmin(h)) }
+	mux.Handle("GET /api/admin/users", adminAuth(http.HandlerFunc(adminH.listUsers)))
+	mux.Handle("DELETE /api/admin/users/{id}", adminAuth(http.HandlerFunc(adminH.deleteUser)))
+	mux.Handle("GET /api/admin/rooms", adminAuth(http.HandlerFunc(adminH.listRooms)))
+	mux.Handle("DELETE /api/admin/rooms/{id}", adminAuth(http.HandlerFunc(adminH.deleteRoom)))
+
 	// Health
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "version": "0.1.0"})

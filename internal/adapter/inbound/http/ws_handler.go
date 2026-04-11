@@ -27,7 +27,7 @@ func (h *wsHandler) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, username, err := h.authMW.ValidateToken(token)
+	userID, username, _, err := h.authMW.ValidateToken(token)
 	if err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return

@@ -82,7 +82,7 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.issueTokens(userID, req.Username)
+	tokens, err := h.issueTokens(userID, req.Username, false)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
 		return
@@ -100,9 +100,10 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 
 	var userID uuid.UUID
 	var username, hash string
+	var isAdmin bool
 	err := h.pool.QueryRow(r.Context(),
-		`SELECT id, username, password FROM users WHERE email = $1`, req.Email,
-	).Scan(&userID, &username, &hash)
+		`SELECT id, username, password, is_admin FROM users WHERE email = $1`, req.Email,
+	).Scan(&userID, &username, &hash, &isAdmin)
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, errBody("invalid credentials"))
 		return
@@ -113,7 +114,7 @@ func (h *authHandler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, err := h.issueTokens(userID, username)
+	tokens, err := h.issueTokens(userID, username, isAdmin)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
 		return
@@ -130,13 +131,13 @@ func (h *authHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	authMW := middleware.NewJWTMiddleware(&h.privKey.PublicKey)
-	userID, username, err := authMW.ValidateToken(cookie.Value)
+	userID, username, isAdmin, err := authMW.ValidateToken(cookie.Value)
 	if err != nil {
 		writeJSON(w, http.StatusUnauthorized, errBody("invalid refresh token"))
 		return
 	}
 
-	tokens, err := h.issueTokens(userID, username)
+	tokens, err := h.issueTokens(userID, username, isAdmin)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
 		return
@@ -150,7 +151,7 @@ type tokenPair struct {
 	RefreshToken string
 }
 
-func (h *authHandler) issueTokens(userID uuid.UUID, username string) (*tokenPair, error) {
+func (h *authHandler) issueTokens(userID uuid.UUID, username string, isAdmin bool) (*tokenPair, error) {
 	now := time.Now()
 
 	access := jwt.NewWithClaims(jwt.SigningMethodRS256, middleware.Claims{
@@ -160,6 +161,7 @@ func (h *authHandler) issueTokens(userID uuid.UUID, username string) (*tokenPair
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
 		Username: username,
+		IsAdmin:  isAdmin,
 	})
 	accessStr, err := access.SignedString(h.privKey)
 	if err != nil {

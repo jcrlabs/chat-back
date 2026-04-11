@@ -18,11 +18,13 @@ type contextKey string
 const (
 	ContextUserID   contextKey = "user_id"
 	ContextUsername contextKey = "username"
+	ContextIsAdmin  contextKey = "is_admin"
 )
 
 type Claims struct {
 	jwt.RegisteredClaims
 	Username string `json:"username"`
+	IsAdmin  bool   `json:"is_admin,omitempty"`
 }
 
 type JWTMiddleware struct {
@@ -41,7 +43,7 @@ func (m *JWTMiddleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		userID, username, err := m.ValidateToken(token)
+		userID, username, isAdmin, err := m.ValidateToken(token)
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -49,6 +51,7 @@ func (m *JWTMiddleware) Authenticate(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), ContextUserID, userID)
 		ctx = context.WithValue(ctx, ContextUsername, username)
+		ctx = context.WithValue(ctx, ContextIsAdmin, isAdmin)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -66,20 +69,26 @@ func (m *JWTMiddleware) extractToken(r *http.Request) (string, error) {
 	return "", errors.New("no token")
 }
 
-func (m *JWTMiddleware) ValidateToken(tokenStr string) (uuid.UUID, string, error) {
+func (m *JWTMiddleware) ValidateToken(tokenStr string) (uuid.UUID, string, bool, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(_ *jwt.Token) (any, error) {
 		return m.pubKey, nil
 	}, jwt.WithValidMethods([]string{"RS256"}))
 	if err != nil || !token.Valid {
-		return uuid.Nil, "", errors.New("invalid token")
+		return uuid.Nil, "", false, errors.New("invalid token")
 	}
 
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		return uuid.Nil, "", errors.New("invalid subject")
+		return uuid.Nil, "", false, errors.New("invalid subject")
 	}
-	return userID, claims.Username, nil
+	return userID, claims.Username, claims.IsAdmin, nil
+}
+
+// IsAdminFromContext returns true if the authenticated user is an admin.
+func IsAdminFromContext(ctx context.Context) bool {
+	v, _ := ctx.Value(ContextIsAdmin).(bool)
+	return v
 }
 
 // UserIDFromContext extracts the authenticated user ID.

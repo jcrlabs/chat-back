@@ -12,6 +12,7 @@ const (
 	RoomTypePublic  RoomType = "public"
 	RoomTypePrivate RoomType = "private"
 	RoomTypeDM      RoomType = "dm"
+	RoomTypeVoice   RoomType = "voice"
 )
 
 const MaxRoomMembers = 100
