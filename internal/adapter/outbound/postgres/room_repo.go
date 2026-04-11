@@ -73,10 +73,11 @@ func (r *RoomRepo) Delete(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) 
 	return nil
 }
 
-func (r *RoomRepo) AddMember(ctx context.Context, roomID, userID uuid.UUID) error {
+func (r *RoomRepo) AddMember(ctx context.Context, roomID, userID uuid.UUID, role domain.MemberRole) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO room_members (room_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-		roomID, userID,
+		`INSERT INTO room_members (room_id, user_id, role) VALUES ($1, $2, $3)
+		 ON CONFLICT (room_id, user_id) DO UPDATE SET role = EXCLUDED.role`,
+		roomID, userID, role,
 	)
 	return err
 }
@@ -90,9 +91,10 @@ func (r *RoomRepo) RemoveMember(ctx context.Context, roomID, userID uuid.UUID) e
 
 func (r *RoomRepo) GetMembers(ctx context.Context, roomID uuid.UUID) ([]domain.Member, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT u.id, u.username FROM users u
+		`SELECT u.id, u.username, rm.role FROM users u
 		 JOIN room_members rm ON rm.user_id = u.id
-		 WHERE rm.room_id = $1`, roomID,
+		 WHERE rm.room_id = $1
+		 ORDER BY CASE rm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, u.username`, roomID,
 	)
 	if err != nil {
 		return nil, err
@@ -102,12 +104,36 @@ func (r *RoomRepo) GetMembers(ctx context.Context, roomID uuid.UUID) ([]domain.M
 	var members []domain.Member
 	for rows.Next() {
 		var m domain.Member
-		if err := rows.Scan(&m.UserID, &m.Username); err != nil {
+		if err := rows.Scan(&m.UserID, &m.Username, &m.Role); err != nil {
 			return nil, err
 		}
 		members = append(members, m)
 	}
 	return members, rows.Err()
+}
+
+func (r *RoomRepo) GetMemberRole(ctx context.Context, roomID, userID uuid.UUID) (domain.MemberRole, error) {
+	var role domain.MemberRole
+	err := r.pool.QueryRow(ctx,
+		`SELECT role FROM room_members WHERE room_id = $1 AND user_id = $2`, roomID, userID,
+	).Scan(&role)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", domain.ErrNotFound
+	}
+	return role, err
+}
+
+func (r *RoomRepo) SetMemberRole(ctx context.Context, roomID, userID uuid.UUID, role domain.MemberRole) error {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE room_members SET role = $3 WHERE room_id = $1 AND user_id = $2`, roomID, userID, role,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 func (r *RoomRepo) MemberCount(ctx context.Context, roomID uuid.UUID) (int, error) {
@@ -116,4 +142,39 @@ func (r *RoomRepo) MemberCount(ctx context.Context, roomID uuid.UUID) (int, erro
 		`SELECT COUNT(*) FROM room_members WHERE room_id = $1`, roomID,
 	).Scan(&count)
 	return count, err
+}
+
+func (r *RoomRepo) IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2)`,
+		roomID, userID,
+	).Scan(&exists)
+	return exists, err
+}
+
+func (r *RoomRepo) ListForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Room, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT r.id, r.name, r.type, r.owner_id, r.created_at
+		 FROM rooms r
+		 WHERE r.type = 'public'
+		    OR (r.type = 'private' AND EXISTS (
+		            SELECT 1 FROM room_members rm WHERE rm.room_id = r.id AND rm.user_id = $1
+		        ))
+		 ORDER BY r.created_at DESC`, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rooms []*domain.Room
+	for rows.Next() {
+		room := &domain.Room{}
+		if err := rows.Scan(&room.ID, &room.Name, &room.Type, &room.OwnerID, &room.CreatedAt); err != nil {
+			return nil, err
+		}
+		rooms = append(rooms, room)
+	}
+	return rooms, rows.Err()
 }

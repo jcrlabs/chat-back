@@ -3,9 +3,16 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"time"
+
+	"github.com/jcrlabs/chat-back/internal/middleware"
 )
 
+// globalLimiter allows 200 req/min per IP (1 token every 300ms).
+var globalLimiter = middleware.RateLimit(200, 300*time.Millisecond)
+
 func applyGlobalMiddleware(next http.Handler, allowedOrigins []string) http.Handler {
+	limited := globalLimiter(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		for _, allowed := range allowedOrigins {
@@ -27,7 +34,7 @@ func applyGlobalMiddleware(next http.Handler, allowedOrigins []string) http.Hand
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		limited.ServeHTTP(w, r)
 	})
 }
 
