@@ -123,11 +123,14 @@ func (h *messageHandler) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if msg.UserID != requesterID {
-		// check if requester is room owner or admin
-		role, roleErr := h.roomSvc.GetMemberRole(r.Context(), msg.RoomID, requesterID)
-		if roleErr != nil || (role != domain.RoleOwner && role != domain.RoleAdmin) {
-			writeJSON(w, http.StatusForbidden, errBody("forbidden"))
-			return
+		// site admins can delete any message
+		if !middleware.IsAdminFromContext(r.Context()) {
+			// check if requester is room owner or admin role
+			role, roleErr := h.roomSvc.GetMemberRole(r.Context(), msg.RoomID, requesterID)
+			if roleErr != nil || (role != domain.RoleOwner && role != domain.RoleAdmin) {
+				writeJSON(w, http.StatusForbidden, errBody("forbidden"))
+				return
+			}
 		}
 	}
 

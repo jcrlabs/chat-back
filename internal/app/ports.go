@@ -14,6 +14,7 @@ type RoomRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Room, error)
 	List(ctx context.Context) ([]*domain.Room, error)
 	Delete(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) error
+	DeleteAny(ctx context.Context, id uuid.UUID) error
 	Rename(ctx context.Context, id uuid.UUID, name string) error
 	AddMember(ctx context.Context, roomID, userID uuid.UUID, role domain.MemberRole) error
 	RemoveMember(ctx context.Context, roomID, userID uuid.UUID) error

@@ -36,3 +36,4 @@ deploy/coturn/coturn-secret.yaml
 # Editor/IDE
 # .idea/
 # .vscode/
+.gstack/

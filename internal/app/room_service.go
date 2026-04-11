@@ -45,7 +45,10 @@ func (s *RoomService) List(ctx context.Context, userID uuid.UUID) ([]*domain.Roo
 	return s.repo.ListForUser(ctx, userID)
 }
 
-func (s *RoomService) Delete(ctx context.Context, id, requesterID uuid.UUID) error {
+func (s *RoomService) Delete(ctx context.Context, id, requesterID uuid.UUID, isAdmin bool) error {
+	if isAdmin {
+		return s.repo.DeleteAny(ctx, id)
+	}
 	return s.repo.Delete(ctx, id, requesterID)
 }
 
@@ -181,7 +184,7 @@ func (s *RoomService) GetRoom(ctx context.Context, id uuid.UUID) (*domain.Room, 
 	return s.repo.GetByID(ctx, id)
 }
 
-func (s *RoomService) Rename(ctx context.Context, roomID, requesterID uuid.UUID, name string) (*domain.Room, error) {
+func (s *RoomService) Rename(ctx context.Context, roomID, requesterID uuid.UUID, name string, isAdmin bool) (*domain.Room, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, domain.ErrBadRequest
@@ -190,7 +193,7 @@ func (s *RoomService) Rename(ctx context.Context, roomID, requesterID uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
-	if room.OwnerID != requesterID {
+	if !isAdmin && room.OwnerID != requesterID {
 		return nil, domain.ErrForbidden
 	}
 	if err := s.repo.Rename(ctx, roomID, name); err != nil {

@@ -73,6 +73,11 @@ func (r *RoomRepo) Delete(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) 
 	return nil
 }
 
+func (r *RoomRepo) DeleteAny(ctx context.Context, id uuid.UUID) error {
+	_, err := r.pool.Exec(ctx, `DELETE FROM rooms WHERE id = $1`, id)
+	return err
+}
+
 func (r *RoomRepo) AddMember(ctx context.Context, roomID, userID uuid.UUID, role domain.MemberRole) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO room_members (room_id, user_id, role) VALUES ($1, $2, $3)

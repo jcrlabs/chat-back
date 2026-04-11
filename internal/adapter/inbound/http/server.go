@@ -84,8 +84,10 @@ func NewServer(
 	adminAuth := func(h http.Handler) http.Handler { return protected(requireAdmin(h)) }
 	mux.Handle("GET /api/admin/users", adminAuth(http.HandlerFunc(adminH.listUsers)))
 	mux.Handle("DELETE /api/admin/users/{id}", adminAuth(http.HandlerFunc(adminH.deleteUser)))
+	mux.Handle("PATCH /api/admin/users/{id}/admin", adminAuth(http.HandlerFunc(adminH.toggleAdmin)))
 	mux.Handle("GET /api/admin/rooms", adminAuth(http.HandlerFunc(adminH.listRooms)))
 	mux.Handle("DELETE /api/admin/rooms/{id}", adminAuth(http.HandlerFunc(adminH.deleteRoom)))
+	mux.Handle("PATCH /api/admin/rooms/{id}", adminAuth(http.HandlerFunc(adminH.renameRoom)))
 
 	// Health
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
