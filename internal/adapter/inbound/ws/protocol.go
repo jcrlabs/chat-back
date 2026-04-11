@@ -61,9 +61,9 @@ const (
 	TypeRoomJoined  = "room_joined"
 	TypeError       = "error"
 	// Edit / delete / rename
-	TypeMessageEdited = "message_edited"
+	TypeMessageEdited  = "message_edited"
 	TypeMessageDeleted = "message_deleted"
-	TypeRoomRenamed   = "room_renamed"
+	TypeRoomRenamed    = "room_renamed"
 	// Voice
 	TypeVoiceJoin         = "voice_join"
 	TypeVoiceLeave        = "voice_leave"
