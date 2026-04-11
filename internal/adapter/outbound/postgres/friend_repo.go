@@ -52,7 +52,7 @@ func (r *FriendRepo) Remove(ctx context.Context, id uuid.UUID, userID uuid.UUID)
 func (r *FriendRepo) ListFriends(ctx context.Context, userID uuid.UUID) ([]*domain.FriendEntry, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT f.id,
-		       u.id, u.username, COALESCE(u.display_name,''), u.email,
+		       u.id, u.username, COALESCE(u.tag,''), COALESCE(u.display_name,''), u.email,
 		       (u.avatar_data IS NOT NULL), u.created_at, u.updated_at
 		FROM friendships f
 		JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
@@ -66,7 +66,7 @@ func (r *FriendRepo) ListFriends(ctx context.Context, userID uuid.UUID) ([]*doma
 	for rows.Next() {
 		e := &domain.FriendEntry{}
 		if err := rows.Scan(&e.FriendshipID,
-			&e.User.ID, &e.User.Username, &e.User.DisplayName, &e.User.Email,
+			&e.User.ID, &e.User.Username, &e.User.Tag, &e.User.DisplayName, &e.User.Email,
 			&e.User.HasAvatar, &e.User.CreatedAt, &e.User.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -78,7 +78,7 @@ func (r *FriendRepo) ListFriends(ctx context.Context, userID uuid.UUID) ([]*doma
 func (r *FriendRepo) ListPendingReceived(ctx context.Context, userID uuid.UUID) ([]*domain.FriendRequest, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT f.id,
-		       u.id, u.username, COALESCE(u.display_name,''), u.email,
+		       u.id, u.username, COALESCE(u.tag,''), COALESCE(u.display_name,''), u.email,
 		       (u.avatar_data IS NOT NULL), u.created_at, u.updated_at,
 		       f.created_at
 		FROM friendships f
@@ -94,7 +94,7 @@ func (r *FriendRepo) ListPendingReceived(ctx context.Context, userID uuid.UUID) 
 		req := &domain.FriendRequest{}
 		var createdAt time.Time
 		if err := rows.Scan(&req.FriendshipID,
-			&req.From.ID, &req.From.Username, &req.From.DisplayName, &req.From.Email,
+			&req.From.ID, &req.From.Username, &req.From.Tag, &req.From.DisplayName, &req.From.Email,
 			&req.From.HasAvatar, &req.From.CreatedAt, &req.From.UpdatedAt,
 			&createdAt); err != nil {
 			return nil, err
@@ -117,7 +117,6 @@ func (r *FriendRepo) GetOrCreateDM(ctx context.Context, userID1, userID2 uuid.UU
 	if err == nil {
 		return room, nil
 	}
-	// Create new DM room
 	room.ID = uuid.New()
 	room.Name = ""
 	room.Type = domain.RoomTypeDM
