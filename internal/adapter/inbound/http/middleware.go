@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,9 +12,21 @@ import (
 // globalLimiter allows 200 req/min per IP (1 token every 300ms).
 var globalLimiter = middleware.RateLimit(200, 300*time.Millisecond)
 
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
 func applyGlobalMiddleware(next http.Handler, allowedOrigins []string) http.Handler {
 	limited := globalLimiter(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: 200}
 		origin := r.Header.Get("Origin")
 		for _, allowed := range allowedOrigins {
 			if origin == allowed {
@@ -21,7 +34,7 @@ func applyGlobalMiddleware(next http.Handler, allowedOrigins []string) http.Hand
 				break
 			}
 		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
@@ -34,7 +47,12 @@ func applyGlobalMiddleware(next http.Handler, allowedOrigins []string) http.Hand
 			return
 		}
 
-		limited.ServeHTTP(w, r)
+		limited.ServeHTTP(rec, r)
+		log.Printf("%s %s %d %s auth=%v",
+			r.Method, r.URL.Path, rec.status,
+			time.Since(start).Round(time.Millisecond),
+			r.Header.Get("Authorization") != "",
+		)
 	})
 }
 
