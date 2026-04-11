@@ -1,7 +1,9 @@
 package http
 
 import (
+	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -111,6 +113,55 @@ func (h *adminHandler) deleteRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := h.pool.Exec(r.Context(), `DELETE FROM rooms WHERE id = $1`, id); err != nil {
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *adminHandler) renameRoom(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody("invalid id"))
+		return
+	}
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody("invalid body"))
+		return
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" {
+		writeJSON(w, http.StatusBadRequest, errBody("name required"))
+		return
+	}
+	if _, err := h.pool.Exec(r.Context(), `UPDATE rooms SET name = $2 WHERE id = $1`, id, name); err != nil {
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *adminHandler) toggleAdmin(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody("invalid id"))
+		return
+	}
+	if middleware.UserIDFromContext(r.Context()) == id {
+		writeJSON(w, http.StatusBadRequest, errBody("cannot change own admin status"))
+		return
+	}
+	var body struct {
+		IsAdmin bool `json:"is_admin"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody("invalid body"))
+		return
+	}
+	if _, err := h.pool.Exec(r.Context(), `UPDATE users SET is_admin = $2 WHERE id = $1`, id, body.IsAdmin); err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
 		return
 	}

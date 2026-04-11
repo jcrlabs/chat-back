@@ -67,7 +67,8 @@ func (h *roomHandler) delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ownerID := middleware.UserIDFromContext(r.Context())
-	if err := h.svc.Delete(r.Context(), id, ownerID); err != nil {
+	isAdmin := middleware.IsAdminFromContext(r.Context())
+	if err := h.svc.Delete(r.Context(), id, ownerID, isAdmin); err != nil {
 		if errors.Is(err, domain.ErrForbidden) {
 			writeJSON(w, http.StatusForbidden, errBody("forbidden"))
 			return
@@ -278,7 +279,8 @@ func (h *roomHandler) rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	requesterID := middleware.UserIDFromContext(r.Context())
-	room, err := h.svc.Rename(r.Context(), id, requesterID, body.Name)
+	isAdminRename := middleware.IsAdminFromContext(r.Context())
+	room, err := h.svc.Rename(r.Context(), id, requesterID, body.Name, isAdminRename)
 	if err != nil {
 		if errors.Is(err, domain.ErrBadRequest) {
 			writeJSON(w, http.StatusBadRequest, errBody(err.Error()))
