@@ -1,8 +1,11 @@
 package http
 
 import (
+	"context"
 	"crypto/rsa"
 	"encoding/json"
+	"fmt"
+	"math/rand/v2"
 	"net/http"
 	"time"
 
@@ -51,9 +54,14 @@ func (h *authHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := uuid.New()
+	tag, err := generateUniqueTag(r.Context(), h.pool)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
+		return
+	}
 	_, err = h.pool.Exec(r.Context(),
-		`INSERT INTO users (id, username, email, password) VALUES ($1, $2, $3, $4)`,
-		userID, req.Username, req.Email, string(hash),
+		`INSERT INTO users (id, username, email, password, tag) VALUES ($1, $2, $3, $4, $5)`,
+		userID, req.Username, req.Email, string(hash), tag,
 	)
 	if err != nil {
 		writeJSON(w, http.StatusConflict, errBody("username or email already exists"))
@@ -158,6 +166,21 @@ func (h *authHandler) issueTokens(userID uuid.UUID, username string) (*tokenPair
 	}
 
 	return &tokenPair{AccessToken: accessStr, RefreshToken: refreshStr}, nil
+}
+
+func generateUniqueTag(ctx context.Context, pool *pgxpool.Pool) (string, error) {
+	for range 20 {
+		tag := fmt.Sprintf("%04d", rand.IntN(9999)+1)
+		var exists bool
+		err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE tag = $1)`, tag).Scan(&exists)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return tag, nil
+		}
+	}
+	return "", fmt.Errorf("could not generate unique tag")
 }
 
 func setRefreshCookie(w http.ResponseWriter, token string) {

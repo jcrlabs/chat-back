@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jcrlabs/chat-back/internal/app"
@@ -22,8 +23,8 @@ func newFriendHandler(svc *app.FriendService, userSvc *app.UserService) *friendH
 // GET /api/users/search?q=
 func (h *friendHandler) searchUsers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	if len(q) < 2 {
-		writeJSON(w, http.StatusBadRequest, errBody("q must be at least 2 characters"))
+	if !strings.Contains(q, "#") {
+		writeJSON(w, http.StatusBadRequest, errBody("q must be in username#tag format"))
 		return
 	}
 	userID := middleware.UserIDFromContext(r.Context())

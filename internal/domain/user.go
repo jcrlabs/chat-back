@@ -9,6 +9,7 @@ import (
 type User struct {
 	ID          uuid.UUID `json:"id"`
 	Username    string    `json:"username"`
+	Tag         string    `json:"tag"`
 	DisplayName string    `json:"display_name,omitempty"`
 	Email       string    `json:"email,omitempty"`
 	HasAvatar   bool      `json:"has_avatar"`
