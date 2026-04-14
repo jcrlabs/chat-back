@@ -22,6 +22,10 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
 func applyGlobalMiddleware(next http.Handler, allowedOrigins []string) http.Handler {
 	limited := globalLimiter(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
