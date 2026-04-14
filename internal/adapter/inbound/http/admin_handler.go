@@ -153,7 +153,7 @@ func (h *adminHandler) listUserFriends(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(),
 		`SELECT f.id::text,
 		        CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END AS friend_id,
-		        u.username, u.tag, u.email, u.has_avatar, f.created_at::text
+		        u.username, u.tag, u.email, (u.avatar_data IS NOT NULL) AS has_avatar, f.created_at::text
 		 FROM friendships f
 		 JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
 		 WHERE (f.requester_id = $1 OR f.addressee_id = $1) AND f.status = 'accepted'
