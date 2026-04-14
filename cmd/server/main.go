@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"crypto/rsa"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,8 +37,9 @@ func main() {
 
 	// ── Redis Cluster (RedKey Operator) ────────────────────────────────────
 	rdb := redis.NewClusterClient(&redis.ClusterOptions{
-		Addrs:    cfg.RedisAddrs,
-		Password: cfg.RedisPassword,
+		Addrs:        cfg.RedisAddrs,
+		Password:     cfg.RedisPassword,
+		ClusterSlots: clusterSlotsByHostname(cfg.RedisAddrs, cfg.RedisPassword),
 	})
 	defer rdb.Close()
 
@@ -95,6 +99,56 @@ func main() {
 	defer cancel()
 	if err := httpSrv.Shutdown(ctx); err != nil {
 		log.Printf("shutdown: %v", err)
+	}
+}
+
+// clusterSlotsByHostname returns a ClusterSlots function that discovers the
+// Redis cluster topology using hostnames instead of the pod IPs returned by
+// CLUSTER SLOTS. This avoids stale-IP failures when pods are rescheduled.
+func clusterSlotsByHostname(addrs []string, password string) func(context.Context) ([]redis.ClusterSlot, error) {
+	return func(ctx context.Context) ([]redis.ClusterSlot, error) {
+		var slots []redis.ClusterSlot
+		for _, addr := range addrs {
+			c := redis.NewClient(&redis.Options{Addr: addr, Password: password})
+			nodes, err := c.ClusterNodes(ctx).Result()
+			c.Close()
+			if err != nil {
+				continue
+			}
+			for _, line := range strings.Split(nodes, "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || !strings.Contains(line, "myself") {
+					continue
+				}
+				parts := strings.Fields(line)
+				if len(parts) < 9 {
+					continue
+				}
+				for _, sr := range parts[8:] {
+					if strings.HasPrefix(sr, "[") {
+						continue // skip migrating/importing slots
+					}
+					var start, end int
+					if idx := strings.Index(sr, "-"); idx != -1 {
+						start, _ = strconv.Atoi(sr[:idx])
+						end, _ = strconv.Atoi(sr[idx+1:])
+					} else {
+						start, _ = strconv.Atoi(sr)
+						end = start
+					}
+					slots = append(slots, redis.ClusterSlot{
+						Start: start,
+						End:   end,
+						Nodes: []redis.ClusterNode{{Addr: addr}},
+					})
+				}
+				break
+			}
+		}
+		if len(slots) == 0 {
+			return nil, fmt.Errorf("redis: no cluster slots discovered from seeds %v", addrs)
+		}
+		return slots, nil
 	}
 }
 
