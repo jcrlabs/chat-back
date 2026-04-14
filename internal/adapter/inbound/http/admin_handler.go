@@ -144,6 +144,48 @@ func (h *adminHandler) renameRoom(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *adminHandler) listUserFriends(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody("invalid id"))
+		return
+	}
+	rows, err := h.pool.Query(r.Context(),
+		`SELECT f.id::text,
+		        CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END AS friend_id,
+		        u.username, u.tag, u.email, u.has_avatar, f.created_at::text
+		 FROM friendships f
+		 JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
+		 WHERE (f.requester_id = $1 OR f.addressee_id = $1) AND f.status = 'accepted'
+		 ORDER BY u.username`, id)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
+		return
+	}
+	defer rows.Close()
+	type friendRow struct {
+		FriendshipID string `json:"friendship_id"`
+		UserID       string `json:"user_id"`
+		Username     string `json:"username"`
+		Tag          string `json:"tag"`
+		Email        string `json:"email"`
+		HasAvatar    bool   `json:"has_avatar"`
+		Since        string `json:"since"`
+	}
+	var friends []friendRow
+	for rows.Next() {
+		var f friendRow
+		if err := rows.Scan(&f.FriendshipID, &f.UserID, &f.Username, &f.Tag, &f.Email, &f.HasAvatar, &f.Since); err != nil {
+			continue
+		}
+		friends = append(friends, f)
+	}
+	if friends == nil {
+		friends = []friendRow{}
+	}
+	writeJSON(w, http.StatusOK, friends)
+}
+
 func (h *adminHandler) toggleAdmin(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
