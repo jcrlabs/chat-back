@@ -184,6 +184,10 @@ func (s *RoomService) GetRoom(ctx context.Context, id uuid.UUID) (*domain.Room, 
 	return s.repo.GetByID(ctx, id)
 }
 
+func (s *RoomService) AddMember(ctx context.Context, roomID, userID uuid.UUID, role domain.MemberRole) error {
+	return s.repo.AddMember(ctx, roomID, userID, role)
+}
+
 func (s *RoomService) Rename(ctx context.Context, roomID, requesterID uuid.UUID, name string, isAdmin bool) (*domain.Room, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {

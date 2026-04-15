@@ -71,6 +71,7 @@ func (h *Hub) Run() {
 
 		case c := <-h.unregister:
 			if _, ok := h.clients[c]; ok {
+				peers := h.roomPeers(c)
 				delete(h.clients, c)
 				close(c.send)
 				for roomID := range c.rooms {
@@ -84,7 +85,7 @@ func (h *Hub) Run() {
 				}
 				ctx := context.Background()
 				_ = h.presenceSvc.SetOffline(ctx, c.userID)
-				h.broadcastPresence(c.userID, c.username, "offline")
+				h.sendPresenceTo(peers, c.userID, c.username, "offline")
 			}
 
 		case env := <-h.incoming:
@@ -136,17 +137,27 @@ func (h *Hub) joinRoom(ctx context.Context, c *Client, roomID uuid.UUID) {
 	if _, joined := c.rooms[roomID]; joined {
 		return
 	}
-	// Check access for private rooms
 	room, err := h.roomSvc.GetRoom(ctx, roomID)
 	if err != nil {
 		c.sendError("room_not_found", "room not found")
 		return
 	}
-	if room.Type == "private" && room.OwnerID != c.userID {
+	switch room.Type {
+	case domain.RoomTypePublic, domain.RoomTypeVoice:
+		_ = h.roomSvc.AddMember(ctx, roomID, c.userID, domain.RoleMember)
+	case domain.RoomTypeDM:
 		ok, err := h.roomSvc.IsMember(ctx, roomID, c.userID)
 		if err != nil || !ok {
-			c.sendError("forbidden", "not a member of this room")
+			c.sendError("forbidden", "not a participant of this DM")
 			return
+		}
+	case domain.RoomTypePrivate:
+		if room.OwnerID != c.userID {
+			ok, err := h.roomSvc.IsMember(ctx, roomID, c.userID)
+			if err != nil || !ok {
+				c.sendError("forbidden", "not a member of this room")
+				return
+			}
 		}
 	}
 	c.rooms[roomID] = struct{}{}
@@ -309,7 +320,24 @@ func (h *Hub) PublishToRoom(ctx context.Context, roomID uuid.UUID, data []byte) 
 	return h.broadcaster.Publish(ctx, roomID, data)
 }
 
-func (h *Hub) broadcastPresence(userID uuid.UUID, username, status string) {
+// roomPeers returns all clients sharing at least one room with c (excluding c itself).
+func (h *Hub) roomPeers(c *Client) map[*Client]struct{} {
+	peers := make(map[*Client]struct{})
+	for roomID := range c.rooms {
+		for peer := range h.rooms[roomID] {
+			if peer != c {
+				peers[peer] = struct{}{}
+			}
+		}
+	}
+	return peers
+}
+
+// sendPresenceTo delivers a presence event only to the given target clients.
+func (h *Hub) sendPresenceTo(targets map[*Client]struct{}, userID uuid.UUID, username, status string) {
+	if len(targets) == 0 {
+		return
+	}
 	out := ServerMessage{
 		Type:      TypePresence,
 		UserID:    userID,
@@ -318,10 +346,9 @@ func (h *Hub) broadcastPresence(userID uuid.UUID, username, status string) {
 		Timestamp: time.Now().UTC(),
 	}
 	data, _ := json.Marshal(out)
-	// deliver to all connected clients
-	for c := range h.clients {
+	for peer := range targets {
 		select {
-		case c.send <- data:
+		case peer.send <- data:
 		default:
 		}
 	}
