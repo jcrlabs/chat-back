@@ -49,6 +49,13 @@ func (h *messageHandler) history(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	requesterID := middleware.UserIDFromContext(r.Context())
+	ok, err := h.roomSvc.IsMember(r.Context(), roomID, requesterID)
+	if err != nil || !ok {
+		writeJSON(w, http.StatusForbidden, errBody("forbidden"))
+		return
+	}
+
 	msgs, err := h.svc.History(r.Context(), roomID, cursor, limit)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
