@@ -22,8 +22,11 @@ type RoomRepository interface {
 	MemberCount(ctx context.Context, roomID uuid.UUID) (int, error)
 	IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
 	ListForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Room, error)
+	ListAll(ctx context.Context) ([]*domain.Room, error)
 	GetMemberRole(ctx context.Context, roomID, userID uuid.UUID) (domain.MemberRole, error)
 	SetMemberRole(ctx context.Context, roomID, userID uuid.UUID, role domain.MemberRole) error
+	GetUnreadCounts(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int, error)
+	MarkRoomRead(ctx context.Context, userID, roomID uuid.UUID) error
 }
 
 // MessageRepository is the port for message persistence.

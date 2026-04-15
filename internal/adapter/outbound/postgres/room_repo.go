@@ -171,6 +171,70 @@ func (r *RoomRepo) Rename(ctx context.Context, id uuid.UUID, name string) error 
 	return nil
 }
 
+func (r *RoomRepo) ListAll(ctx context.Context) ([]*domain.Room, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, name, type, owner_id, created_at FROM rooms ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rooms []*domain.Room
+	for rows.Next() {
+		room := &domain.Room{}
+		if err := rows.Scan(&room.ID, &room.Name, &room.Type, &room.OwnerID, &room.CreatedAt); err != nil {
+			return nil, err
+		}
+		rooms = append(rooms, room)
+	}
+	return rooms, rows.Err()
+}
+
+func (r *RoomRepo) GetUnreadCounts(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int, error) {
+	rows, err := r.pool.Query(ctx,
+		`WITH user_rooms AS (
+		     SELECT r.id AS room_id FROM rooms r
+		     WHERE r.type IN ('public', 'voice')
+		        OR (r.type IN ('private', 'dm') AND EXISTS (
+		                SELECT 1 FROM room_members rm WHERE rm.room_id = r.id AND rm.user_id = $1
+		            ))
+		 )
+		 SELECT m.room_id, COUNT(*) AS cnt
+		 FROM messages m
+		 JOIN user_rooms ur ON ur.room_id = m.room_id
+		 LEFT JOIN room_reads rr ON rr.room_id = m.room_id AND rr.user_id = $1
+		 WHERE rr.last_read_at IS NULL OR m.created_at > rr.last_read_at
+		 GROUP BY m.room_id
+		 HAVING COUNT(*) > 0`, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[uuid.UUID]int)
+	for rows.Next() {
+		var roomID uuid.UUID
+		var cnt int
+		if err := rows.Scan(&roomID, &cnt); err != nil {
+			return nil, err
+		}
+		counts[roomID] = cnt
+	}
+	return counts, rows.Err()
+}
+
+func (r *RoomRepo) MarkRoomRead(ctx context.Context, userID, roomID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`INSERT INTO room_reads (user_id, room_id, last_read_at)
+		 VALUES ($1, $2, now())
+		 ON CONFLICT (user_id, room_id) DO UPDATE SET last_read_at = now()`,
+		userID, roomID,
+	)
+	return err
+}
+
 func (r *RoomRepo) ListForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Room, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT r.id, r.name, r.type, r.owner_id, r.created_at

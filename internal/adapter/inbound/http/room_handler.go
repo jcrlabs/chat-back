@@ -26,12 +26,51 @@ func newRoomHandler(svc *app.RoomService, hub *ws.Hub) *roomHandler {
 
 func (h *roomHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.UserIDFromContext(r.Context())
-	rooms, err := h.svc.List(r.Context(), userID)
+	isAdmin := middleware.IsAdminFromContext(r.Context())
+	var rooms interface{}
+	var err error
+	if isAdmin {
+		rooms, err = h.svc.ListAll(r.Context())
+	} else {
+		rooms, err = h.svc.List(r.Context(), userID)
+	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
 		return
 	}
 	writeJSON(w, http.StatusOK, rooms)
+}
+
+func (h *roomHandler) unreadCounts(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromContext(r.Context())
+	counts, err := h.svc.GetUnreadCounts(r.Context(), userID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
+		return
+	}
+	type item struct {
+		RoomID string `json:"room_id"`
+		Count  int    `json:"count"`
+	}
+	result := make([]item, 0, len(counts))
+	for roomID, count := range counts {
+		result = append(result, item{RoomID: roomID.String(), Count: count})
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *roomHandler) markRead(w http.ResponseWriter, r *http.Request) {
+	roomID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errBody("invalid id"))
+		return
+	}
+	userID := middleware.UserIDFromContext(r.Context())
+	if err := h.svc.MarkRoomRead(r.Context(), userID, roomID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *roomHandler) create(w http.ResponseWriter, r *http.Request) {

@@ -188,6 +188,18 @@ func (s *RoomService) AddMember(ctx context.Context, roomID, userID uuid.UUID, r
 	return s.repo.AddMember(ctx, roomID, userID, role)
 }
 
+func (s *RoomService) ListAll(ctx context.Context) ([]*domain.Room, error) {
+	return s.repo.ListAll(ctx)
+}
+
+func (s *RoomService) GetUnreadCounts(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int, error) {
+	return s.repo.GetUnreadCounts(ctx, userID)
+}
+
+func (s *RoomService) MarkRoomRead(ctx context.Context, userID, roomID uuid.UUID) error {
+	return s.repo.MarkRoomRead(ctx, userID, roomID)
+}
+
 func (s *RoomService) Rename(ctx context.Context, roomID, requesterID uuid.UUID, name string, isAdmin bool) (*domain.Room, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {

@@ -46,6 +46,8 @@ func NewServer(
 	// Rooms
 	roomH := newRoomHandler(roomSvc, hub)
 	mux.Handle("GET /api/rooms", protected(http.HandlerFunc(roomH.list)))
+	mux.Handle("GET /api/rooms/unread", protected(http.HandlerFunc(roomH.unreadCounts)))
+	mux.Handle("POST /api/rooms/{id}/read", protected(http.HandlerFunc(roomH.markRead)))
 	mux.Handle("POST /api/rooms", protected(http.HandlerFunc(roomH.create)))
 	mux.Handle("PATCH /api/rooms/{id}", protected(http.HandlerFunc(roomH.rename)))
 	mux.Handle("DELETE /api/rooms/{id}", protected(http.HandlerFunc(roomH.delete)))
