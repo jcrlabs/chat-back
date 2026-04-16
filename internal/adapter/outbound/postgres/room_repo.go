@@ -204,7 +204,7 @@ func (r *RoomRepo) GetUnreadCounts(ctx context.Context, userID uuid.UUID) (map[u
 		 FROM messages m
 		 JOIN user_rooms ur ON ur.room_id = m.room_id
 		 LEFT JOIN room_reads rr ON rr.room_id = m.room_id AND rr.user_id = $1
-		 WHERE rr.last_read_at IS NULL OR m.created_at > rr.last_read_at
+		 WHERE m.user_id != $1 AND (rr.last_read_at IS NULL OR m.created_at > rr.last_read_at)
 		 GROUP BY m.room_id
 		 HAVING COUNT(*) > 0`, userID,
 	)
