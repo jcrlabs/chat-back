@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,8 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/crypto/bcrypt"
 
 	httpAdapter "github.com/jcrlabs/chat-back/internal/adapter/inbound/http"
 	"github.com/jcrlabs/chat-back/internal/adapter/inbound/ws"
@@ -67,6 +70,9 @@ func main() {
 	friendSvc := app.NewFriendService(friendRepo)
 	presenceSvc := app.NewPresenceService(presence)
 	chatSvc := app.NewChatService(msgSvc, pubsub)
+
+	// ── Demo user seed ─────────────────────────────────────────────────────
+	seedDemoUser(context.Background(), pool, cfg.DemoUserEmail, cfg.DemoUserPassword)
 
 	// ── WebSocket hub ──────────────────────────────────────────────────────
 	hub := ws.NewHub(chatSvc, presenceSvc, roomSvc, pubsub)
@@ -150,6 +156,42 @@ func clusterSlotsByHostname(addrs []string, password string) func(context.Contex
 		}
 		return slots, nil
 	}
+}
+
+func seedDemoUser(ctx context.Context, pool *pgxpool.Pool, email, password string) {
+	if password == "" {
+		log.Println("DEMO_USER_PASSWORD not set — demo user not seeded")
+		return
+	}
+	var count int
+	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM users WHERE email = $1`, email).Scan(&count)
+	if count > 0 {
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		log.Printf("seed demo user: hash error: %v", err)
+		return
+	}
+	tag := "0000"
+	for range 20 {
+		t := fmt.Sprintf("%04d", rand.IntN(9999)+1)
+		var exists bool
+		_ = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE tag = $1)`, t).Scan(&exists)
+		if !exists {
+			tag = t
+			break
+		}
+	}
+	_, err = pool.Exec(ctx,
+		`INSERT INTO users (id, username, email, password, tag) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING`,
+		uuid.New(), "demo", email, string(hash), tag,
+	)
+	if err != nil {
+		log.Printf("seed demo user: %v", err)
+		return
+	}
+	log.Printf("demo user seeded: %s", email)
 }
 
 func mustLoadPrivateKey(path string) *rsa.PrivateKey {

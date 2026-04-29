@@ -19,12 +19,13 @@ import (
 )
 
 type authHandler struct {
-	privKey *rsa.PrivateKey
-	pool    *pgxpool.Pool
+	privKey   *rsa.PrivateKey
+	pool      *pgxpool.Pool
+	demoEmail string
 }
 
-func newAuthHandler(privKey *rsa.PrivateKey, pool *pgxpool.Pool) *authHandler {
-	return &authHandler{privKey: privKey, pool: pool}
+func newAuthHandler(privKey *rsa.PrivateKey, pool *pgxpool.Pool, demoEmail string) *authHandler {
+	return &authHandler{privKey: privKey, pool: pool, demoEmail: demoEmail}
 }
 
 type registerRequest struct {
@@ -193,6 +194,40 @@ func (h *authHandler) issueTokens(userID uuid.UUID, username string, isAdmin boo
 	}
 
 	return &tokenPair{AccessToken: accessStr, RefreshToken: refreshStr}, nil
+}
+
+func (h *authHandler) demo(w http.ResponseWriter, r *http.Request) {
+	var userID uuid.UUID
+	var username string
+	err := h.pool.QueryRow(r.Context(),
+		`SELECT id, username FROM users WHERE email = $1`, h.demoEmail,
+	).Scan(&userID, &username)
+	if err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, errBody("demo not available"))
+		return
+	}
+
+	now := time.Now()
+	expiresAt := now.Add(30 * time.Minute)
+	token, err := jwt.NewWithClaims(jwt.SigningMethodRS256, middleware.Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID.String(),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			IssuedAt:  jwt.NewNumericDate(now),
+		},
+		Username: username,
+		IsAdmin:  false,
+	}).SignedString(h.privKey)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, errBody("internal"))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"token":      token,
+		"expires_in": int(time.Until(expiresAt).Seconds()),
+		"expires_at": expiresAt,
+	})
 }
 
 func generateUniqueTag(ctx context.Context, pool *pgxpool.Pool) (string, error) {

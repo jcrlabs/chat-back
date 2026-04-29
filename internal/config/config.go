@@ -17,6 +17,9 @@ type Config struct {
 	JWTPrivateKeyPath string
 
 	AllowedOrigins []string
+
+	DemoUserEmail    string
+	DemoUserPassword string
 }
 
 func Load() *Config {
@@ -28,6 +31,9 @@ func Load() *Config {
 		JWTPublicKeyPath:  getEnv("JWT_PUBLIC_KEY_PATH", ".keys/public.pem"),
 		JWTPrivateKeyPath: getEnv("JWT_PRIVATE_KEY_PATH", ".keys/private.pem"),
 		AllowedOrigins:    splitEnv("ALLOWED_ORIGINS", "https://chat.jcrlabs.net"),
+
+		DemoUserEmail:    getEnv("DEMO_USER_EMAIL", "demo@jcrlabs.net"),
+		DemoUserPassword: getEnv("DEMO_USER_PASSWORD", ""),
 	}
 }
 

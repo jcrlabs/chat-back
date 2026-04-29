@@ -27,14 +27,17 @@ func NewServer(
 	mux := http.NewServeMux()
 
 	// Auth handlers
-	authH := newAuthHandler(privKey, pool)
+	authH := newAuthHandler(privKey, pool, cfg.DemoUserEmail)
 	// Strict limit for credential endpoints (brute-force protection): 5 req/3 min per IP.
 	credLimit := middleware.RateLimit(5, 3*time.Minute)
 	// Relaxed limit for refresh: 30 req/min per IP (requires valid cookie, not a credential).
 	refreshLimit := middleware.RateLimit(30, 2*time.Second)
+	// Demo endpoint: 20 req/min per IP.
+	demoLimit := middleware.RateLimit(20, time.Minute)
 	mux.Handle("POST /api/auth/register", credLimit(http.HandlerFunc(authH.register)))
 	mux.Handle("POST /api/auth/login", credLimit(http.HandlerFunc(authH.login)))
 	mux.Handle("POST /api/auth/refresh", refreshLimit(http.HandlerFunc(authH.refresh)))
+	mux.Handle("GET /api/auth/demo", demoLimit(http.HandlerFunc(authH.demo)))
 
 	// Protected routes
 	protected := authMW.Authenticate

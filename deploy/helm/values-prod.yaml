@@ -6,6 +6,9 @@ image:
 ingress:
   host: chat-api.jcrlabs.net
 
+env:
+  ALLOWED_ORIGINS: "https://chat.jcrlabs.net,https://home.jcrlabs.net"
+
 hpa:
   minReplicas: 2
   maxReplicas: 5

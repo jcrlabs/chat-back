@@ -38,6 +38,12 @@ spec:
                   name: {{ .Values.secrets.name }}
                   key: REDIS_PASSWORD
                   optional: true
+            - name: DEMO_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: DEMO_USER_PASSWORD
+                  optional: true
           volumeMounts:
             - name: jwt-keys
               mountPath: /etc/chat/keys
