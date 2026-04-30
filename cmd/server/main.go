@@ -73,6 +73,7 @@ func main() {
 
 	// ── Demo user seed ─────────────────────────────────────────────────────
 	seedDemoUser(context.Background(), pool, cfg.DemoUserEmail, cfg.DemoUserPassword)
+	seedDemoData(context.Background(), pool, cfg.DemoUserEmail)
 
 	// ── WebSocket hub ──────────────────────────────────────────────────────
 	hub := ws.NewHub(chatSvc, presenceSvc, roomSvc, pubsub)
@@ -192,6 +193,73 @@ func seedDemoUser(ctx context.Context, pool *pgxpool.Pool, email, password strin
 		return
 	}
 	log.Printf("demo user seeded: %s", email)
+}
+
+func seedDemoData(ctx context.Context, pool *pgxpool.Pool, demoEmail string) {
+	// Resolve demo user ID
+	var demoID uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, demoEmail).Scan(&demoID); err != nil {
+		log.Printf("seedDemoData: demo user not found, skipping: %v", err)
+		return
+	}
+
+	// Seed demofriend user
+	friendEmail := "demofriend@jcrlabs.net"
+	var friendID uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, friendEmail).Scan(&friendID); err != nil {
+		// Create demofriend
+		friendID = uuid.New()
+		tag := "demo"
+		_, err = pool.Exec(ctx,
+			`INSERT INTO users (id, username, email, password, tag) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING`,
+			friendID, "demofriend", friendEmail, "$2a$12$disabled", tag,
+		)
+		if err != nil {
+			log.Printf("seedDemoData: create demofriend: %v", err)
+			return
+		}
+		log.Println("seedDemoData: demofriend user seeded")
+	}
+
+	// Seed accepted friendship
+	_, err := pool.Exec(ctx,
+		`INSERT INTO friendships (requester_id, addressee_id, status)
+		 VALUES ($1, $2, 'accepted')
+		 ON CONFLICT (requester_id, addressee_id) DO NOTHING`,
+		demoID, friendID,
+	)
+	if err != nil {
+		log.Printf("seedDemoData: friendship: %v", err)
+	}
+
+	// Seed public text room "demotexto"
+	var exists bool
+	_ = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM rooms WHERE name = $1 AND type = 'public')`, "demotexto").Scan(&exists)
+	if !exists {
+		_, err = pool.Exec(ctx,
+			`INSERT INTO rooms (id, name, type, owner_id) VALUES ($1, $2, 'public', $3)`,
+			uuid.New(), "demotexto", demoID,
+		)
+		if err != nil {
+			log.Printf("seedDemoData: create demotexto room: %v", err)
+		} else {
+			log.Println("seedDemoData: demotexto room seeded")
+		}
+	}
+
+	// Seed voice room "demo voice chat"
+	_ = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM rooms WHERE name = $1 AND type = 'voice')`, "demo voice chat").Scan(&exists)
+	if !exists {
+		_, err = pool.Exec(ctx,
+			`INSERT INTO rooms (id, name, type, owner_id) VALUES ($1, $2, 'voice', $3)`,
+			uuid.New(), "demo voice chat", demoID,
+		)
+		if err != nil {
+			log.Printf("seedDemoData: create voice room: %v", err)
+		} else {
+			log.Println("seedDemoData: demo voice chat room seeded")
+		}
+	}
 }
 
 func mustLoadPrivateKey(path string) *rsa.PrivateKey {
