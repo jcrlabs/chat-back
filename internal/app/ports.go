@@ -1,0 +1,79 @@
+package app
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jcrlabs/chat-back/internal/domain"
+)
+
+// RoomRepository is the port for room persistence.
+type RoomRepository interface {
+	Create(ctx context.Context, room *domain.Room) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Room, error)
+	List(ctx context.Context) ([]*domain.Room, error)
+	Delete(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) error
+	DeleteAny(ctx context.Context, id uuid.UUID) error
+	Rename(ctx context.Context, id uuid.UUID, name string) error
+	AddMember(ctx context.Context, roomID, userID uuid.UUID, role domain.MemberRole) error
+	RemoveMember(ctx context.Context, roomID, userID uuid.UUID) error
+	GetMembers(ctx context.Context, roomID uuid.UUID) ([]domain.Member, error)
+	MemberCount(ctx context.Context, roomID uuid.UUID) (int, error)
+	IsMember(ctx context.Context, roomID, userID uuid.UUID) (bool, error)
+	ListForUser(ctx context.Context, userID uuid.UUID) ([]*domain.Room, error)
+	ListAll(ctx context.Context) ([]*domain.Room, error)
+	GetMemberRole(ctx context.Context, roomID, userID uuid.UUID) (domain.MemberRole, error)
+	SetMemberRole(ctx context.Context, roomID, userID uuid.UUID, role domain.MemberRole) error
+	GetUnreadCounts(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int, error)
+	MarkRoomRead(ctx context.Context, userID, roomID uuid.UUID) error
+}
+
+// MessageRepository is the port for message persistence.
+type MessageRepository interface {
+	Save(ctx context.Context, msg *domain.Message) error
+	// ListBefore returns up to `limit` messages before `cursor` (UUID, time-sorted).
+	// Pass uuid.Nil for first page.
+	ListBefore(ctx context.Context, roomID uuid.UUID, cursor uuid.UUID, limit int) ([]*domain.Message, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Message, error)
+	UpdateContent(ctx context.Context, id uuid.UUID, content string, editedAt time.Time) error
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// UserRepository is the port for user profile persistence.
+type UserRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	UpdateProfile(ctx context.Context, id uuid.UUID, displayName string) error
+	SaveAvatar(ctx context.Context, id uuid.UUID, data []byte, mime string) error
+	GetAvatar(ctx context.Context, id uuid.UUID) ([]byte, string, error)
+	Search(ctx context.Context, query string, excludeID uuid.UUID) ([]*domain.User, error)
+}
+
+// FriendRepository is the port for friendship persistence.
+type FriendRepository interface {
+	SendRequest(ctx context.Context, requesterID, addresseeID uuid.UUID) error
+	Accept(ctx context.Context, id uuid.UUID, addresseeID uuid.UUID) error
+	Remove(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
+	ListFriends(ctx context.Context, userID uuid.UUID) ([]*domain.FriendEntry, error)
+	ListPendingReceived(ctx context.Context, userID uuid.UUID) ([]*domain.FriendRequest, error)
+	GetOrCreateDM(ctx context.Context, userID1, userID2 uuid.UUID) (*domain.Room, error)
+	ListDMs(ctx context.Context, userID uuid.UUID) ([]*domain.DMRoom, error)
+}
+
+// RoomInviteRepository is the port for room invite persistence.
+type RoomInviteRepository interface {
+	Create(ctx context.Context, invite *domain.RoomInvite) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.RoomInvite, error)
+	Accept(ctx context.Context, id uuid.UUID) error
+	Decline(ctx context.Context, id uuid.UUID) error
+	ListPending(ctx context.Context, userID uuid.UUID) ([]*domain.RoomInvite, error)
+	ListForRoom(ctx context.Context, roomID uuid.UUID) ([]*domain.RoomInvite, error)
+}
+
+// PresenceStore is the port for tracking online presence.
+type PresenceStore interface {
+	SetOnline(ctx context.Context, userID uuid.UUID) error
+	SetOffline(ctx context.Context, userID uuid.UUID) error
+	Heartbeat(ctx context.Context, userID uuid.UUID) error
+	IsOnline(ctx context.Context, userID uuid.UUID) (bool, error)
+}

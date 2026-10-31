@@ -1,0 +1,59 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/jcrlabs/chat-back
+  pullPolicy: Always
+  tag: ""
+  pullSecretName: ghcr-pull-secret
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-cloudflare
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+  host: ""
+  tls: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+hpa:
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+
+env:
+  PORT: "8080"
+  JWT_PUBLIC_KEY_PATH: "/etc/chat/keys/public.pem"
+  JWT_PRIVATE_KEY_PATH: "/etc/chat/keys/private.pem"
+  REDIS_ADDRS: "chat-redis-0.chat-redis.chat.svc.cluster.local:6379,chat-redis-1.chat-redis.chat.svc.cluster.local:6379,chat-redis-2.chat-redis.chat.svc.cluster.local:6379"
+  ALLOWED_ORIGINS: "https://chat.jcrlabs.net"
+
+secrets:
+  # Name of the K8s Secret containing DATABASE_URL, REDIS_PASSWORD, JWT keys
+  name: chat-back-secrets
+
+postgres:
+  image: postgres:16-alpine
+  storage: "5Gi"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
